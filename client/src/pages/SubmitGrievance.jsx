@@ -3,18 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import Footer from '../shared/Footer';
-import { Upload } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const SubmitGrievance = () => {
     const navigate = useNavigate();
     const { user, authenticatedFetch } = useAuth();
+    const [activeTab, setActiveTab] = useState('form'); // 'form' or 'document'
     const [formData, setFormData] = useState({
         title: '',
         department: '',
+        location: '',
         description: '',
         attachments: []
     });
+    const [documentFile, setDocumentFile] = useState(null);
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -44,35 +47,56 @@ const SubmitGrievance = () => {
     const handleFileChange = (e) => {
         const files = e.target.files;
         if (files) {
-            const newAttachments = [];
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+            if (activeTab === 'form') {
+                const newAttachments = [];
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                        setErrors(prev => ({
+                            ...prev,
+                            attachments: 'File size should not exceed 5MB'
+                        }));
+                        return;
+                    }
+                    newAttachments.push(file);
+                }
+                setFormData(prev => ({
+                    ...prev,
+                    attachments: newAttachments
+                }));
+            } else {
+                const file = files[0];
+                if (file.size > 5 * 1024 * 1024) {
                     setErrors(prev => ({
                         ...prev,
-                        attachments: 'File size should not exceed 5MB'
+                        document: 'File size should not exceed 5MB'
                     }));
                     return;
                 }
-                newAttachments.push(file);
+                setDocumentFile(file);
             }
-            setFormData(prev => ({
-                ...prev,
-                attachments: newAttachments
-            }));
         }
     };
 
     const validateForm = () => {
         const newErrors = {};
-        if (!formData.title.trim()) {
-            newErrors.title = 'Title is required';
-        }
-        if (!formData.department) {
-            newErrors.department = 'Department is required';
-        }
-        if (!formData.description.trim()) {
-            newErrors.description = 'Description is required';
+        if (activeTab === 'form') {
+            if (!formData.title.trim()) {
+                newErrors.title = 'Title is required';
+            }
+            if (!formData.department) {
+                newErrors.department = 'Department is required';
+            }
+            if (!formData.location.trim()) {
+                newErrors.location = 'Location is required';
+            }
+            if (!formData.description.trim()) {
+                newErrors.description = 'Description is required';
+            }
+        } else {
+            if (!documentFile) {
+                newErrors.document = 'Please upload a document';
+            }
         }
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -90,56 +114,85 @@ const SubmitGrievance = () => {
         setIsSubmitting(true);
 
         try {
-            const formDataToSend = new FormData();
-            formDataToSend.append('title', formData.title.trim());
-            formDataToSend.append('department', formData.department);
-            formDataToSend.append('description', formData.description.trim());
+            if (activeTab === 'form') {
+                const requestData = {
+                    title: formData.title.trim(),
+                    department: formData.department,
+                    location: formData.location.trim(),
+                    description: formData.description.trim()
+                };
 
-            // Append each file to FormData
-            if (formData.attachments.length > 0) {
-                formDataToSend.append('attachment', formData.attachments[0]); // Only send first file for now
-            }
-
-            const response = await authenticatedFetch('http://localhost:5000/api/grievances/submit', {
-                method: 'POST',
-                body: formDataToSend
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to submit grievance');
-            }
-
-            const data = await response.json();
-
-            if (data.message === 'Grievance submitted successfully') {
-                setSubmitSuccess(true);
-                setFormData({
-                    title: '',
-                    department: '',
-                    description: '',
-                    attachments: []
+                const response = await authenticatedFetch('http://localhost:5000/api/grievances', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
                 });
-                toast.success('Grievance submitted successfully!');
-                
-                // Navigate to dashboard after successful submission
-                setTimeout(() => {
-                    navigate('/petitioner/dashboard', {
-                        state: {
-                            message: 'Grievance submitted successfully!',
-                            type: 'success'
-                        }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to submit grievance');
+                }
+
+                const data = await response.json();
+
+                if (data.message === 'Grievance created successfully') {
+                    setSubmitSuccess(true);
+                    setFormData({
+                        title: '',
+                        department: '',
+                        location: '',
+                        description: '',
+                        attachments: []
                     });
-                }, 1500);
+                    toast.success('Grievance submitted successfully!');
+
+                    setTimeout(() => {
+                        navigate('/petitioner/dashboard', {
+                            state: {
+                                message: 'Grievance submitted successfully!',
+                                type: 'success'
+                            }
+                        });
+                    }, 1500);
+                }
             } else {
-                throw new Error(data.message || 'Failed to submit grievance');
+                const formData = new FormData();
+                formData.append('document', documentFile);
+
+                const response = await authenticatedFetch('http://localhost:5000/api/grievances/document', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to submit document');
+                }
+
+                const data = await response.json();
+                if (data.message === 'Document processed successfully') {
+                    setSubmitSuccess(true);
+                    setDocumentFile(null);
+                    toast.success('Document submitted successfully!');
+
+                    setTimeout(() => {
+                        navigate('/petitioner/dashboard', {
+                            state: {
+                                message: 'Document submitted successfully!',
+                                type: 'success'
+                            }
+                        });
+                    }, 1500);
+                }
             }
         } catch (error) {
             console.error('Submission error:', error);
-            const errorMessage = error.message === 'Session expired. Please log in again.' 
+            const errorMessage = error.message === 'Session expired. Please log in again.'
                 ? 'Your session has expired. Please log in again to submit your grievance.'
                 : error.message || 'Failed to submit grievance. Please try again.';
-            
+
             setSubmitError(errorMessage);
             toast.error(errorMessage);
         } finally {
@@ -156,6 +209,26 @@ const SubmitGrievance = () => {
                         <div className="card shadow">
                             <div className="card-body">
                                 <h2 className="text-center mb-4">Submit New Grievance</h2>
+
+                                {/* Tab Navigation */}
+                                <div className="nav nav-tabs mb-4" role="tablist">
+                                    <button
+                                        className={`nav-link ${activeTab === 'form' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('form')}
+                                        type="button"
+                                    >
+                                        <FileText className="me-2" size={18} />
+                                        Fill Form
+                                    </button>
+                                    <button
+                                        className={`nav-link ${activeTab === 'document' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('document')}
+                                        type="button"
+                                    >
+                                        <Upload className="me-2" size={18} />
+                                        Upload Document
+                                    </button>
+                                </div>
 
                                 {submitError && (
                                     <div className="alert alert-danger" role="alert">
@@ -189,70 +262,118 @@ const SubmitGrievance = () => {
                                         </div>
                                     </div>
 
-                                    {/* Grievance Details Section */}
-                                    <div className="mb-4">
-                                        <h5>Grievance Details</h5>
+                                    {/* Form-based Input */}
+                                    {activeTab === 'form' && (
+                                        <div className="mb-4">
+                                            <h5>Grievance Details</h5>
 
-                                        <div className="mb-3">
-                                            <label className="form-label">Title*</label>
-                                            <input
-                                                type="text"
-                                                className={`form-control ${errors.title ? 'is-invalid' : ''}`}
-                                                name="title"
-                                                value={formData.title}
-                                                onChange={handleChange}
-                                                placeholder="Enter grievance title"
-                                            />
-                                            {errors.title && <div className="invalid-feedback">{errors.title}</div>}
-                                        </div>
-
-                                        <div className="mb-3">
-                                            <label className="form-label">Department*</label>
-                                            <select
-                                                className={`form-select ${errors.department ? 'is-invalid' : ''}`}
-                                                name="department"
-                                                value={formData.department}
-                                                onChange={handleChange}
-                                            >
-                                                <option value="">Select Department</option>
-                                                <option value="Water">Water Department</option>
-                                                <option value="RTO">RTO</option>
-                                                <option value="Electricity">Electricity Department</option>
-                                            </select>
-                                            {errors.department && <div className="invalid-feedback">{errors.department}</div>}
-                                        </div>
-
-                                        <div className="mb-3">
-                                            <label className="form-label">Description*</label>
-                                            <textarea
-                                                className={`form-control ${errors.description ? 'is-invalid' : ''}`}
-                                                name="description"
-                                                value={formData.description}
-                                                onChange={handleChange}
-                                                rows="5"
-                                                placeholder="Provide detailed description of your grievance"
-                                            ></textarea>
-                                            {errors.description && <div className="invalid-feedback">{errors.description}</div>}
-                                        </div>
-
-                                        <div className="mb-3">
-                                            <label className="form-label">Attachments</label>
-                                            <div className="input-group">
+                                            <div className="mb-3">
+                                                <label className="form-label">Title*</label>
                                                 <input
-                                                    type="file"
-                                                    className={`form-control ${errors.attachments ? 'is-invalid' : ''}`}
-                                                    onChange={handleFileChange}
-                                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                    multiple
+                                                    type="text"
+                                                    className={`form-control ${errors.title ? 'is-invalid' : ''}`}
+                                                    name="title"
+                                                    value={formData.title}
+                                                    onChange={handleChange}
+                                                    placeholder="Enter grievance title"
                                                 />
-                                                <span className="input-group-text">
-                                                    <Upload size={20} />
-                                                </span>
+                                                {errors.title && <div className="invalid-feedback">{errors.title}</div>}
                                             </div>
-                                            {errors.attachments && <div className="text-danger small mt-1">{errors.attachments}</div>}
-                                            <div className="form-text">Max file size: 5MB. Supported formats: PDF, DOC, DOCX, JPG, PNG</div>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Department*</label>
+                                                <select
+                                                    className={`form-select ${errors.department ? 'is-invalid' : ''}`}
+                                                    name="department"
+                                                    value={formData.department}
+                                                    onChange={handleChange}
+                                                >
+                                                    <option value="">Select Department</option>
+                                                    <option value="Water">Water Department</option>
+                                                    <option value="RTO">RTO</option>
+                                                    <option value="Electricity">Electricity Department</option>
+                                                </select>
+                                                {errors.department && <div className="invalid-feedback">{errors.department}</div>}
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Location*</label>
+                                                <input
+                                                    type="text"
+                                                    className={`form-control ${errors.location ? 'is-invalid' : ''}`}
+                                                    name="location"
+                                                    value={formData.location}
+                                                    onChange={handleChange}
+                                                    placeholder="Enter location (e.g., street address, area, landmark)"
+                                                />
+                                                {errors.location && <div className="invalid-feedback">{errors.location}</div>}
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Description*</label>
+                                                <textarea
+                                                    className={`form-control ${errors.description ? 'is-invalid' : ''}`}
+                                                    name="description"
+                                                    value={formData.description}
+                                                    onChange={handleChange}
+                                                    rows="5"
+                                                    placeholder="Provide detailed description of your grievance"
+                                                ></textarea>
+                                                {errors.description && <div className="invalid-feedback">{errors.description}</div>}
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Additional Attachments</label>
+                                                <div className="input-group">
+                                                    <input
+                                                        type="file"
+                                                        className={`form-control ${errors.attachments ? 'is-invalid' : ''}`}
+                                                        onChange={handleFileChange}
+                                                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                                        multiple
+                                                    />
+                                                    <span className="input-group-text">
+                                                        <Upload size={20} />
+                                                    </span>
+                                                </div>
+                                                {errors.attachments && <div className="text-danger small mt-1">{errors.attachments}</div>}
+                                                <div className="form-text">Max file size: 5MB. Supported formats: PDF, DOC, DOCX, JPG, PNG</div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
+
+                                    {/* Document Upload */}
+                                    {activeTab === 'document' && (
+                                        <div className="mb-4">
+                                            <h5>Upload Document</h5>
+                                            <div className="alert alert-info">
+                                                <p className="mb-0">Supported document types:</p>
+                                                <ul className="mb-0">
+                                                    <li>Handwritten Tamil</li>
+                                                    <li>Digitalized Tamil text</li>
+                                                    <li>Digitalized English text</li>
+                                                    <li>Handwritten English text</li>
+                                                </ul>
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Upload Document*</label>
+                                                <div className="input-group">
+                                                    <input
+                                                        type="file"
+                                                        className={`form-control ${errors.document ? 'is-invalid' : ''}`}
+                                                        onChange={handleFileChange}
+                                                        accept=".pdf,.jpg,.jpeg,.png"
+                                                    />
+                                                    <span className="input-group-text">
+                                                        <Upload size={20} />
+                                                    </span>
+                                                </div>
+                                                {errors.document && <div className="text-danger small mt-1">{errors.document}</div>}
+                                                <div className="form-text">Max file size: 5MB. Supported formats: PDF, JPG, PNG</div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="d-grid gap-2">
                                         <button
