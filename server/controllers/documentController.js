@@ -55,6 +55,35 @@ const cleanDepartment = (department) => {
     return departmentMap[cleaned.toLowerCase()] || cleaned;
 };
 
+// Function to analyze text and determine priority
+const analyzePriority = (text) => {
+    const highPriorityKeywords = [
+        'urgent', 'emergency', 'critical', 'immediate', 'life-threatening',
+        'dangerous', 'hazard', 'risk', 'safety', 'accident', 'injury',
+        'health', 'medical', 'hospital', 'fire', 'flood', 'leak', 'breakdown',
+        'outage', 'power cut', 'water supply', 'sewage', 'blockage'
+    ];
+
+    const mediumPriorityKeywords = [
+        'inconvenience', 'delay', 'waiting', 'pending', 'issue',
+        'problem', 'complaint', 'request', 'maintenance', 'repair',
+        'service', 'quality', 'standard', 'improvement'
+    ];
+
+    const textLower = text.toLowerCase();
+    const highPriorityCount = highPriorityKeywords.filter(keyword =>
+        textLower.includes(keyword)
+    ).length;
+
+    const mediumPriorityCount = mediumPriorityKeywords.filter(keyword =>
+        textLower.includes(keyword)
+    ).length;
+
+    if (highPriorityCount > 0) return 'High';
+    if (mediumPriorityCount > 0) return 'Medium';
+    return 'Low';
+};
+
 // Process document and create grievance
 export const processDocument = async (req, res) => {
     try {
@@ -132,12 +161,17 @@ export const processDocument = async (req, res) => {
         }
 
         // Extract key information using Gemini
-        const extractionPrompt = `Analyze this text and provide the following information in a structured format:
+        const extractionPrompt = `Analyze this text and provide the following information in a structured format. For priority, carefully analyze the content and assign based on these criteria:
+        - High: Life-threatening situations, safety hazards, critical infrastructure issues, immediate health risks
+        - Medium: Service disruptions, maintenance issues, quality concerns, non-critical problems
+        - Low: General complaints, improvement suggestions, minor inconveniences
+
         Title: [Main topic or subject]
         Department: [Water, RTO, or Electricity only]
         Location: [Address or area mentioned]
         Description: [Main content or issue]
         Priority: [High, Medium, or Low]
+        Priority Explanation: [Brief explanation of why this priority was assigned]
 
         Text to analyze: ${englishText}`;
 
@@ -154,7 +188,8 @@ export const processDocument = async (req, res) => {
             department: '',
             location: '',
             description: '',
-            priority: 'Medium' // Default priority
+            priority: 'Medium', // Default priority
+            priorityExplanation: ''
         };
 
         // Extract information using regex
@@ -163,12 +198,14 @@ export const processDocument = async (req, res) => {
         const locationMatch = responseText.match(/Location:\s*([^\n]+)/i);
         const descriptionMatch = responseText.match(/Description:\s*([^\n]+)/i);
         const priorityMatch = responseText.match(/Priority:\s*([^\n]+)/i);
+        const priorityExplanationMatch = responseText.match(/Priority Explanation:\s*([^\n]+)/i);
 
         if (titleMatch) extractedData.title = titleMatch[1].trim();
         if (departmentMatch) extractedData.department = cleanDepartment(departmentMatch[1]);
         if (locationMatch) extractedData.location = locationMatch[1].trim();
         if (descriptionMatch) extractedData.description = descriptionMatch[1].trim();
         if (priorityMatch) extractedData.priority = priorityMatch[1].trim();
+        if (priorityExplanationMatch) extractedData.priorityExplanation = priorityExplanationMatch[1].trim();
 
         // Validate required fields
         if (!extractedData.title || !extractedData.department || !extractedData.location || !extractedData.description) {
@@ -181,6 +218,12 @@ export const processDocument = async (req, res) => {
             throw new Error(`Invalid department: ${extractedData.department}. Must be one of: ${validDepartments.join(', ')}`);
         }
 
+        // Validate priority is one of the allowed values
+        const validPriorities = ['High', 'Medium', 'Low'];
+        if (!validPriorities.includes(extractedData.priority)) {
+            extractedData.priority = 'Medium'; // Default to Medium if invalid
+        }
+
         // Create new grievance
         const grievance = new Grievance({
             petitionId: `GRV${Date.now().toString().slice(-6)}`,
@@ -190,11 +233,13 @@ export const processDocument = async (req, res) => {
             location: extractedData.location,
             petitioner,
             status: 'pending',
+            priority: extractedData.priority,
+            priorityExplanation: extractedData.priorityExplanation,
             statusHistory: [{
                 status: 'pending',
                 updatedBy: petitioner,
                 updatedByType: 'petitioner',
-                comment: 'Document-based grievance submitted'
+                comment: `Document-based grievance submitted. Priority: ${extractedData.priority} - ${extractedData.priorityExplanation}`
             }],
             originalDocument: {
                 filename: req.file.filename,

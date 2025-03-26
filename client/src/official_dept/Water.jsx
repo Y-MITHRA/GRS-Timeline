@@ -150,14 +150,14 @@ const WaterDashboard = () => {
     }
   };
 
-  const handleAccept = async (grievanceId) => {
+  const handleAccept = async (grievance) => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
         throw new Error('No authentication token found');
       }
 
-      const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/accept`, {
+      const response = await fetch(`http://localhost:5000/api/grievances/${grievance._id}/accept`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -171,9 +171,10 @@ const WaterDashboard = () => {
       // Refresh data
       fetchGrievances();
       setActiveTab('assigned');
+      toast.success('Grievance accepted successfully');
     } catch (error) {
       console.error('Error accepting grievance:', error);
-      setError('Failed to accept grievance');
+      toast.error('Failed to accept grievance');
     }
   };
 
@@ -464,6 +465,9 @@ const WaterDashboard = () => {
                         <span className={`status ${item.status.toLowerCase()}`}>
                           {item.status}
                         </span>
+                        <span className={`priority ${item.priority?.toLowerCase() || 'medium'}`}>
+                          {item.priority || 'Medium'}
+                        </span>
                       </div>
                       <div className="grievance-actions">
                         {activeTab === 'pending' && (
@@ -550,6 +554,17 @@ const WaterDashboard = () => {
                   <p><strong>Title:</strong> {selectedGrievance.title}</p>
                   <p><strong>Description:</strong> {selectedGrievance.description}</p>
                   <p><strong>Status:</strong> {selectedGrievance.status}</p>
+                  <p>
+                    <strong>Priority:</strong>
+                    <span className={`priority ${selectedGrievance.priority?.toLowerCase() || 'medium'}`}>
+                      {selectedGrievance.priority || 'Medium'}
+                    </span>
+                    {selectedGrievance.priorityExplanation && (
+                      <span className="priority-explanation">
+                        - {selectedGrievance.priorityExplanation}
+                      </span>
+                    )}
+                  </p>
                   <p><strong>Submitted by:</strong> {selectedGrievance.petitioner?.name}</p>
                   {selectedGrievance.assignedTo && (
                     <p><strong>Assigned to:</strong> {selectedGrievance.assignedTo.name}</p>
