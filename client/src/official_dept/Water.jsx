@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaUser, FaSignOutAlt, FaCheck, FaPlay, FaCheckCircle } from 'react-icons/fa';
 import io from 'socket.io-client';
 import { toast } from 'react-hot-toast';
+import { ChatComponent } from "../components/ChatComponent";
+import "../styles/Chat.css";
 
 const WaterDashboard = () => {
   const navigate = useNavigate();
@@ -34,6 +36,7 @@ const WaterDashboard = () => {
   const [declineReason, setDeclineReason] = useState("");
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [socket, setSocket] = useState(null);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -329,6 +332,11 @@ const WaterDashboard = () => {
     navigate('/login');
   };
 
+  const handleViewChat = (grievance) => {
+    setSelectedGrievance(grievance);
+    setShowChat(true);
+  };
+
   const filteredGrievances = grievances[activeTab].filter(grievance =>
     (grievance?.grievanceId?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
     (grievance?.title?.toLowerCase() || '').includes(searchQuery.toLowerCase())
@@ -439,7 +447,7 @@ const WaterDashboard = () => {
               <div className="alert alert-danger">{error}</div>
             ) : (
               <div className="grievance-list">
-                {grievances[activeTab].map((item) => (
+                {filteredGrievances.map((item) => (
                   <div
                     className={`grievance-item ${selectedGrievance?._id === item._id ? 'selected' : ''}`}
                     key={item._id}
@@ -510,7 +518,7 @@ const WaterDashboard = () => {
                               className="btn btn-info btn-sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedGrievance(item);
+                                handleViewChat(item);
                               }}
                             >
                               Chat
@@ -530,7 +538,7 @@ const WaterDashboard = () => {
                     </div>
                   </div>
                 ))}
-                {grievances[activeTab].length === 0 && (
+                {filteredGrievances.length === 0 && (
                   <div className="text-center p-4">No grievances found</div>
                 )}
               </div>
@@ -659,6 +667,31 @@ const WaterDashboard = () => {
               <p className="text-sm">{selectedGrievance.resolution.text}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {showChat && selectedGrievance && (
+        <div className="modal fade show" style={{ display: 'block' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Chat for Grievance: {selectedGrievance.grievanceId}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowChat(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <ChatComponent
+                  grievanceId={selectedGrievance._id}
+                  assignedTo={selectedGrievance.assignedTo}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

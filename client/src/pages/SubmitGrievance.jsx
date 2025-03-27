@@ -13,8 +13,8 @@ const SubmitGrievance = () => {
     const [formData, setFormData] = useState({
         title: '',
         department: '',
-        location: '',
         description: '',
+        location: '',
         attachments: []
     });
     const [documentFile, setDocumentFile] = useState(null);
@@ -87,11 +87,11 @@ const SubmitGrievance = () => {
             if (!formData.department) {
                 newErrors.department = 'Department is required';
             }
-            if (!formData.location.trim()) {
-                newErrors.location = 'Location is required';
-            }
             if (!formData.description.trim()) {
                 newErrors.description = 'Description is required';
+            }
+            if (!formData.location.trim()) {
+                newErrors.location = 'Location is required';
             }
         } else {
             if (!documentFile) {
@@ -118,9 +118,11 @@ const SubmitGrievance = () => {
                 const requestData = {
                     title: formData.title.trim(),
                     department: formData.department,
-                    location: formData.location.trim(),
-                    description: formData.description.trim()
+                    description: formData.description.trim(),
+                    location: formData.location.trim()
                 };
+
+                console.log('Submitting grievance with data:', requestData);
 
                 const response = await authenticatedFetch('http://localhost:5000/api/grievances', {
                     method: 'POST',
@@ -132,18 +134,20 @@ const SubmitGrievance = () => {
 
                 if (!response.ok) {
                     const errorData = await response.json();
+                    console.error('Server response error:', errorData);
                     throw new Error(errorData.error || 'Failed to submit grievance');
                 }
 
                 const data = await response.json();
+                console.log('Server response success:', data);
 
                 if (data.message === 'Grievance created successfully') {
                     setSubmitSuccess(true);
                     setFormData({
                         title: '',
                         department: '',
-                        location: '',
                         description: '',
+                        location: '',
                         attachments: []
                     });
                     toast.success('Grievance submitted successfully!');
@@ -157,7 +161,7 @@ const SubmitGrievance = () => {
                         });
                     }, 1500);
                 }
-            } else {
+            } else if (activeTab === 'document' && documentFile) {
                 const formData = new FormData();
                 formData.append('document', documentFile);
 
@@ -304,7 +308,7 @@ const SubmitGrievance = () => {
                                                     name="location"
                                                     value={formData.location}
                                                     onChange={handleChange}
-                                                    placeholder="Enter location (e.g., street address, area, landmark)"
+                                                    placeholder="Enter location"
                                                 />
                                                 {errors.location && <div className="invalid-feedback">{errors.location}</div>}
                                             </div>

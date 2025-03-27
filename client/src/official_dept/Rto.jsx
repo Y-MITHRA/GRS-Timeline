@@ -3,6 +3,7 @@ import "../styles/WaterBoard.css";
 import NavBar_Departments from "../components/NavBar_Departments";
 import { useAuth } from "../context/AuthContext";
 import { toast } from 'react-hot-toast';
+import { ChatComponent } from '../components/ChatComponent';
 
 const RTODashboard = () => {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ const RTODashboard = () => {
   const [declineReason, setDeclineReason] = useState("");
   const [chatMessage, setChatMessage] = useState("");
   const [showChat, setShowChat] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     setEmployeeId(localStorage.getItem("employeeId") || "N/A");
@@ -258,6 +260,11 @@ const RTODashboard = () => {
     window.location.href = "/";
   };
 
+  const handleViewChat = (grievance) => {
+    setSelectedGrievance(grievance);
+    setShowChat(true);
+  };
+
   return (
     <div>
       <NavBar_Departments />
@@ -433,10 +440,7 @@ const RTODashboard = () => {
                           </button>
                           <button
                             className="btn btn-info"
-                            onClick={() => {
-                              setSelectedGrievance(item);
-                              setShowChat(true);
-                            }}
+                            onClick={() => handleViewChat(item)}
                           >
                             Chat
                           </button>
@@ -486,39 +490,40 @@ const RTODashboard = () => {
       )}
 
       {showChat && selectedGrievance && (
-        <div className="chat-modal">
-          <div className="chat-content">
-            <div className="chat-header">
-              <h3>Chat with Petitioner</h3>
-              <button
-                className="close-btn"
-                onClick={() => {
-                  setShowChat(false);
-                  setSelectedGrievance(null);
-                }}
-              >
-                ×
-              </button>
+        <div className="modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Chat for Grievance {selectedGrievance._id}</h3>
+              <button onClick={() => setShowChat(false)}>&times;</button>
             </div>
-            <div className="chat-messages">
-              {selectedGrievance.chatMessages?.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`chat-message ${msg.senderType === 'Official' ? 'sent' : 'received'
-                    }`}
-                >
-                  {msg.message}
-                </div>
-              ))}
-            </div>
-            <div className="chat-input">
-              <input
-                type="text"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                placeholder="Type your message..."
+            <div className="modal-body">
+              <ChatComponent 
+                grievanceId={selectedGrievance._id} 
+                assignedTo={selectedGrievance.assignedTo}
               />
-              <button onClick={sendChatMessage}>Send</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDetails && selectedGrievance && (
+        <div className="modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Grievance Details</h3>
+              <button onClick={() => setShowDetails(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p><strong>ID:</strong> {selectedGrievance._id}</p>
+              <p><strong>Title:</strong> {selectedGrievance.title}</p>
+              <p><strong>Description:</strong> {selectedGrievance.description}</p>
+              <p><strong>Status:</strong> {selectedGrievance.status}</p>
+              <p><strong>Priority:</strong> {selectedGrievance.priority}</p>
+              <p><strong>Created At:</strong> {new Date(selectedGrievance.createdAt).toLocaleString()}</p>
+              <p><strong>Location:</strong> {selectedGrievance.location}</p>
+              {selectedGrievance.assignedTo && (
+                <p><strong>Assigned To:</strong> {selectedGrievance.assignedTo.firstName} {selectedGrievance.assignedTo.lastName}</p>
+              )}
             </div>
           </div>
         </div>

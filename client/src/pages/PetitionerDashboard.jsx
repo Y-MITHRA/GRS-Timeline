@@ -5,6 +5,8 @@ import Footer from "../shared/Footer";
 import NavBar from "../components/NavBar";
 import { Plus, Search, Filter, RefreshCw, Eye, MessageCircle, AlertCircle } from "lucide-react";
 import moment from 'moment';
+import { ChatComponent } from "../components/ChatComponent";
+import "../styles/Chat.css";
 
 const PetitionerDashboard = () => {
     const navigate = useNavigate();
@@ -25,6 +27,8 @@ const PetitionerDashboard = () => {
     });
     const [activeTab, setActiveTab] = useState('all');
     const [filteredGrievances, setFilteredGrievances] = useState([]);
+    const [selectedGrievance, setSelectedGrievance] = useState(null);
+    const [showChat, setShowChat] = useState(false);
 
     useEffect(() => {
         fetchGrievances();
@@ -115,6 +119,11 @@ const PetitionerDashboard = () => {
 
     const handleViewDetails = (grievanceId) => {
         navigate(`/grievance/${grievanceId}`);
+    };
+
+    const handleViewChat = (grievance) => {
+        setSelectedGrievance(grievance);
+        setShowChat(true);
     };
 
     return (
@@ -247,12 +256,13 @@ const PetitionerDashboard = () => {
                                 <th>Assigned To</th>
                                 <th>Submitted Date</th>
                                 <th>Last Updated</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="7" className="text-center py-4">
+                                    <td colSpan="8" className="text-center py-4">
                                         <div className="spinner-border text-primary" role="status">
                                             <span className="visually-hidden">Loading...</span>
                                         </div>
@@ -260,7 +270,7 @@ const PetitionerDashboard = () => {
                                 </tr>
                             ) : filteredGrievances.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" className="text-center py-4">
+                                    <td colSpan="8" className="text-center py-4">
                                         No grievances found
                                     </td>
                                 </tr>
@@ -283,12 +293,46 @@ const PetitionerDashboard = () => {
                                         </td>
                                         <td>{moment(grievance.createdAt).format('MMM D, YYYY')}</td>
                                         <td>{moment(grievance.updatedAt).format('MMM D, YYYY')}</td>
+                                        <td>
+                                            {grievance.assignedTo && (
+                                                <button
+                                                    className="btn btn-sm btn-primary"
+                                                    onClick={() => handleViewChat(grievance)}
+                                                >
+                                                    <MessageCircle size={16} className="me-1" />
+                                                    Chat
+                                                </button>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
+
+                {/* Chat Modal */}
+                {showChat && selectedGrievance && (
+                    <div className="modal fade show" style={{ display: 'block' }}>
+                        <div className="modal-dialog modal-lg">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">
+                                        Chat for Grievance: {selectedGrievance.grievanceId}
+                                    </h5>
+                                    <button
+                                        type="button"
+                                        className="btn-close"
+                                        onClick={() => setShowChat(false)}
+                                    ></button>
+                                </div>
+                                <div className="modal-body">
+                                    <ChatComponent grievanceId={selectedGrievance._id} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
             <Footer />
         </>

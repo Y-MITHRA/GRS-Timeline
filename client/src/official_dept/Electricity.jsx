@@ -3,6 +3,7 @@ import "../styles/WaterBoard.css";
 import NavBar_Departments from "../components/NavBar_Departments";
 import { useAuth } from "../context/AuthContext";
 import { toast } from 'react-hot-toast';
+import { ChatComponent } from '../components/ChatComponent';
 
 const ElectricityDashboard = () => {
   const { user } = useAuth();
@@ -27,8 +28,8 @@ const ElectricityDashboard = () => {
   const [selectedGrievance, setSelectedGrievance] = useState(null);
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
-  const [chatMessage, setChatMessage] = useState("");
   const [showChat, setShowChat] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     setEmployeeId(localStorage.getItem("employeeId") || "N/A");
@@ -84,22 +85,18 @@ const ElectricityDashboard = () => {
       const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/accept`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${token}`
         }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to accept grievance');
+        throw new Error('Failed to accept grievance');
       }
 
-      await response.json(); // Wait for the response to be processed
-      toast.success('Grievance accepted successfully');
-
-      // Switch tab first, then fetch new data
+      // Refresh data and switch to assigned tab
+      fetchGrievances();
       setActiveTab('assigned');
-      await fetchGrievances();
+      toast.success('Grievance accepted successfully');
     } catch (error) {
       console.error('Error accepting grievance:', error);
       toast.error(error.message || 'Failed to accept grievance');
@@ -180,62 +177,42 @@ const ElectricityDashboard = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Check file size (5MB limit)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error('File size should not exceed 5MB');
-          return;
-        }
-
-        // Check file type
-        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-        if (!allowedTypes.includes(file.type)) {
-          toast.error('Invalid file type. Only PDF and images are allowed.');
-          return;
-        }
-
         const formData = new FormData();
         formData.append('document', file);
 
-        try {
-          // First upload the document
-          const uploadResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/upload-resolution`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: formData
-          });
+        // First upload the document
+        const uploadResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/upload-resolution`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData
+        });
 
-          if (!uploadResponse.ok) {
-            const errorData = await uploadResponse.json();
-            throw new Error(errorData.error || 'Failed to upload resolution document');
-          }
-
-          // Then resolve the grievance
-          const resolveResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/resolve`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              resolution: 'Grievance resolved with attached document'
-            })
-          });
-
-          if (!resolveResponse.ok) {
-            const errorData = await resolveResponse.json();
-            throw new Error(errorData.error || 'Failed to resolve grievance');
-          }
-
-          // Refresh data and switch to resolved tab
-          fetchGrievances();
-          setActiveTab('resolved');
-          toast.success('Grievance resolved successfully');
-        } catch (error) {
-          console.error('Error during resolution process:', error);
-          toast.error(error.message || 'Failed to complete resolution process');
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload resolution document');
         }
+
+        // Then resolve the grievance
+        const resolveResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/resolve`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            resolution: 'Grievance resolved with attached document'
+          })
+        });
+
+        if (!resolveResponse.ok) {
+          throw new Error('Failed to resolve grievance');
+        }
+
+        // Refresh data and switch to resolved tab
+        fetchGrievances();
+        setActiveTab('resolved');
+        toast.success('Grievance resolved successfully');
       };
 
       fileInput.click();
@@ -245,41 +222,16 @@ const ElectricityDashboard = () => {
     }
   };
 
-  const sendChatMessage = async () => {
-    if (!chatMessage.trim() || !selectedGrievance) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`http://localhost:5000/api/grievances/${selectedGrievance._id}/chat`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ message: chatMessage })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      setChatMessage("");
-      fetchGrievances();
-    } catch (error) {
-      console.error('Error sending chat message:', error);
-      toast.error(error.message || 'Failed to send message');
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("employeeId");
     localStorage.removeItem("email");
     localStorage.removeItem("token");
     window.location.href = "/";
+  };
+
+  const handleViewChat = (grievance) => {
+    setSelectedGrievance(grievance);
+    setShowChat(true);
   };
 
   return (
@@ -303,11 +255,11 @@ const ElectricityDashboard = () => {
             </div>
             <div className="menu-item">
               <span className="icon">⚡</span>
-              <span>Connection Status</span>
+              <span>Power Services</span>
             </div>
             <div className="menu-item">
-              <span className="icon">💡</span>
-              <span>Load Management</span>
+              <span className="icon">📄</span>
+              <span>Billing</span>
             </div>
             <div className="menu-item">
               <span className="icon">📊</span>
@@ -404,7 +356,7 @@ const ElectricityDashboard = () => {
                         {item.assignedTo && (
                           <>
                             <img src="/api/placeholder/24/24" alt="Assignee" className="assignee-avatar" />
-                            <span>{item.assignedTo.name}</span>
+                            <span>{item.assignedTo.firstName} {item.assignedTo.lastName}</span>
                           </>
                         )}
                       </div>
@@ -457,10 +409,7 @@ const ElectricityDashboard = () => {
                           </button>
                           <button
                             className="btn btn-info"
-                            onClick={() => {
-                              setSelectedGrievance(item);
-                              setShowChat(true);
-                            }}
+                            onClick={() => handleViewChat(item)}
                           >
                             Chat
                           </button>
@@ -510,39 +459,40 @@ const ElectricityDashboard = () => {
       )}
 
       {showChat && selectedGrievance && (
-        <div className="chat-modal">
-          <div className="chat-content">
-            <div className="chat-header">
-              <h3>Chat with Petitioner</h3>
-              <button
-                className="close-btn"
-                onClick={() => {
-                  setShowChat(false);
-                  setSelectedGrievance(null);
-                }}
-              >
-                ×
-              </button>
+        <div className="modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Chat for Grievance {selectedGrievance._id}</h3>
+              <button onClick={() => setShowChat(false)}>&times;</button>
             </div>
-            <div className="chat-messages">
-              {selectedGrievance.chatMessages?.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`chat-message ${msg.senderType === 'Official' ? 'sent' : 'received'
-                    }`}
-                >
-                  {msg.message}
-                </div>
-              ))}
-            </div>
-            <div className="chat-input">
-              <input
-                type="text"
-                value={chatMessage}
-                onChange={(e) => setChatMessage(e.target.value)}
-                placeholder="Type your message..."
+            <div className="modal-body">
+              <ChatComponent
+                grievanceId={selectedGrievance._id}
+                assignedTo={selectedGrievance.assignedTo}
               />
-              <button onClick={sendChatMessage}>Send</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDetails && selectedGrievance && (
+        <div className="modal">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Grievance Details</h3>
+              <button onClick={() => setShowDetails(false)}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <p><strong>ID:</strong> {selectedGrievance._id}</p>
+              <p><strong>Title:</strong> {selectedGrievance.title}</p>
+              <p><strong>Description:</strong> {selectedGrievance.description}</p>
+              <p><strong>Status:</strong> {selectedGrievance.status}</p>
+              <p><strong>Priority:</strong> {selectedGrievance.priority}</p>
+              <p><strong>Created At:</strong> {new Date(selectedGrievance.createdAt).toLocaleString()}</p>
+              <p><strong>Location:</strong> {selectedGrievance.location}</p>
+              {selectedGrievance.assignedTo && (
+                <p><strong>Assigned To:</strong> {selectedGrievance.assignedTo.firstName} {selectedGrievance.assignedTo.lastName}</p>
+              )}
             </div>
           </div>
         </div>

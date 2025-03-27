@@ -7,18 +7,19 @@ export const createGrievance = async (req, res) => {
         console.log('Received request body:', req.body);
         console.log('User from auth middleware:', req.user);
 
-        const { title, description, department } = req.body;
+        const { title, description, department, location } = req.body;
         const petitioner = req.user.id; // From auth middleware
 
         // Validate required fields
-        if (!title || !description || !department) {
-            console.log('Missing required fields:', { title, description, department });
+        if (!title || !description || !department || !location) {
+            console.log('Missing required fields:', { title, description, department, location });
             return res.status(400).json({
                 error: 'Missing required fields',
                 missingFields: {
                     title: !title,
                     description: !description,
-                    department: !department
+                    department: !department,
+                    location: !location
                 }
             });
         }
@@ -39,6 +40,7 @@ export const createGrievance = async (req, res) => {
             title,
             description,
             department,
+            location,
             petitioner,
             status: 'pending',
             statusHistory: [{
@@ -60,7 +62,8 @@ export const createGrievance = async (req, res) => {
         console.error('Error creating grievance:', error);
         res.status(500).json({
             error: 'Failed to create grievance',
-            details: error.message
+            details: error.message,
+            validationErrors: error.errors
         });
     }
 };
