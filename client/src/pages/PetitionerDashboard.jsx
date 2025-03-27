@@ -54,9 +54,10 @@ const PetitionerDashboard = () => {
                 // Transform the data to match the expected format
                 const transformedGrievances = data.grievances.map(grievance => ({
                     ...grievance,
-                    petitionId: grievance.grievanceId, // Map grievanceId to petitionId for compatibility
+                    grievanceId: grievance.petitionId || grievance.grievanceId, // Use petitionId if available, fallback to grievanceId
                     submittedDate: grievance.createdAt,
-                    lastUpdated: grievance.updatedAt
+                    lastUpdated: grievance.updatedAt,
+                    assignedTo: grievance.assignedTo || null // Ensure assignedTo is properly handled
                 }));
 
                 // Filter based on active tab
@@ -265,8 +266,8 @@ const PetitionerDashboard = () => {
                                 </tr>
                             ) : (
                                 filteredGrievances.map((grievance) => (
-                                    <tr key={grievance.grievanceId}>
-                                        <td>{grievance.grievanceId}</td>
+                                    <tr key={grievance._id}>
+                                        <td>{grievance.grievanceId || 'N/A'}</td>
                                         <td>{grievance.title}</td>
                                         <td>{grievance.department}</td>
                                         <td>
@@ -274,7 +275,12 @@ const PetitionerDashboard = () => {
                                                 {grievance.status}
                                             </span>
                                         </td>
-                                        <td>{grievance.assignedTo ? grievance.assignedTo.name : 'Not Assigned'}</td>
+                                        <td>
+                                            {grievance.assignedTo ?
+                                                `${grievance.assignedTo.firstName} ${grievance.assignedTo.lastName}` :
+                                                'Not Assigned'
+                                            }
+                                        </td>
                                         <td>{moment(grievance.createdAt).format('MMM D, YYYY')}</td>
                                         <td>{moment(grievance.updatedAt).format('MMM D, YYYY')}</td>
                                     </tr>
