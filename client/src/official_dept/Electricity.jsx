@@ -3,7 +3,7 @@ import "../styles/WaterBoard.css";
 import NavBar_Departments from "../components/NavBar_Departments";
 import { useAuth } from "../context/AuthContext";
 import { toast } from 'react-hot-toast';
-import { ChatComponent } from '../components/ChatComponent';
+import ChatComponent from '../components/ChatComponent';
 
 const ElectricityDashboard = () => {
   const { user } = useAuth();

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Official from '../models/Official.js';
+import Petitioner from '../models/Petitioner.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -13,6 +14,68 @@ const generateToken = (user) => {
     };
 
     return jwt.sign(payload, JWT_SECRET, { algorithm: 'HS256' });
+};
+
+// Petitioner Login
+export const loginPetitioner = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Log incoming request data (without password)
+        console.log('📥 Petitioner Login attempt:', {
+            email,
+            password: '[REDACTED]'
+        });
+
+        // Check for required fields
+        if (!email || !password) {
+            console.log('❌ Missing required fields:', { email: !!email, password: !!password });
+            return res.status(400).json({ error: 'Email and password are required' });
+        }
+
+        // Find petitioner by email
+        const petitioner = await Petitioner.findOne({ email });
+        if (!petitioner) {
+            console.log('❌ Petitioner not found:', email);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Check password
+        const isPasswordValid = await bcrypt.compare(password, petitioner.password);
+        if (!isPasswordValid) {
+            console.log('❌ Password mismatch for petitioner:', email);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            {
+                id: petitioner._id.toString(),
+                role: 'petitioner',
+                exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
+            },
+            JWT_SECRET,
+            { algorithm: 'HS256' }
+        );
+
+        console.log('✅ Petitioner logged in successfully:', petitioner.email);
+
+        // Return user data with token
+        res.status(200).json({
+            message: 'Login successful',
+            token,
+            user: {
+                id: petitioner._id.toString(),
+                firstName: petitioner.firstName,
+                lastName: petitioner.lastName,
+                email: petitioner.email,
+                role: 'petitioner'
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error during petitioner login:', error.message);
+        res.status(500).json({ error: 'Server error during login' });
+    }
 };
 
 // Official Login with Department Redirect

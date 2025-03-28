@@ -5,7 +5,7 @@ import Footer from "../shared/Footer";
 import NavBar from "../components/NavBar";
 import { Plus, Search, Filter, RefreshCw, Eye, MessageCircle, AlertCircle } from "lucide-react";
 import moment from 'moment';
-import { ChatComponent } from "../components/ChatComponent";
+import ChatComponent from '../components/ChatComponent';
 import "../styles/Chat.css";
 
 const PetitionerDashboard = () => {

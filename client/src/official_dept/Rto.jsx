@@ -3,7 +3,7 @@ import "../styles/WaterBoard.css";
 import NavBar_Departments from "../components/NavBar_Departments";
 import { useAuth } from "../context/AuthContext";
 import { toast } from 'react-hot-toast';
-import { ChatComponent } from '../components/ChatComponent';
+import ChatComponent from '../components/ChatComponent';
 
 const RTODashboard = () => {
   const { user } = useAuth();
@@ -497,8 +497,8 @@ const RTODashboard = () => {
               <button onClick={() => setShowChat(false)}>&times;</button>
             </div>
             <div className="modal-body">
-              <ChatComponent 
-                grievanceId={selectedGrievance._id} 
+              <ChatComponent
+                grievanceId={selectedGrievance._id}
                 assignedTo={selectedGrievance.assignedTo}
               />
             </div>

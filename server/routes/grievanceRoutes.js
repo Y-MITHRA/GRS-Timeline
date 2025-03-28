@@ -18,7 +18,8 @@ import {
     startProgress,
     uploadResolutionDocument,
     submitFeedback,
-    getOfficialFeedback
+    getOfficialFeedback,
+    findNearestOffice
 } from '../controllers/grievanceController.js';
 import { processDocument, upload } from '../controllers/documentController.js';
 
@@ -93,5 +94,8 @@ router.get('/official/:id/feedback', auth, getOfficialFeedback);
 // Chat routes
 router.get('/:id/chat', auth, getChatMessages);
 router.post('/:id/chat', auth, sendChatMessage);
+
+// Find nearest office for a grievance
+router.get('/:id/nearest-office', auth, findNearestOffice);
 
 export default router;  

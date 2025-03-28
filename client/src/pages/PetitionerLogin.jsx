@@ -47,40 +47,14 @@ const PetitionerLogin = () => {
         if (!validateForm()) return;
 
         try {
-            const response = await fetch("http://localhost:5000/api/petitioner/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
+            // Use the login function from AuthContext
+            await login(formData.email, formData.password);
 
-            const data = await response.json();
+            // Log success for debugging
+            console.log('Login successful');
 
-            if (response.ok) {
-                // Ensure we have all required data
-                if (!data.token) {
-                    setServerError("Server error: No token received");
-                    return;
-                }
-
-                // Format user data to match expected structure
-                const userData = {
-                    id: data.userId,
-                    role: 'petitioner',
-                    email: data.email,
-                    name: data.name
-                };
-
-                // Call login with correct parameters
-                await login(userData, data.token);
-
-                // Log success for debugging
-                console.log('Login successful');
-
-                // Redirect to dashboard
-                navigate('/petitioner/dashboard');
-            } else {
-                setServerError(data.message || "Login failed");
-            }
+            // Navigate to dashboard
+            navigate('/petitioner/dashboard');
         } catch (error) {
             console.error('Login error:', error);
             setServerError(error.message || "Server error. Please try again later.");

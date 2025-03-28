@@ -87,10 +87,17 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem('user');
 
         if (token && storedUser) {
-            const decoded = decodeToken(token);
-            if (decoded && decoded.exp * 1000 > Date.now()) {
-                setUser(JSON.parse(storedUser));
-            } else {
+            try {
+                const decoded = decodeToken(token);
+                if (decoded && decoded.exp * 1000 > Date.now()) {
+                    // Set user from localStorage
+                    setUser(JSON.parse(storedUser));
+                } else {
+                    // Token expired, clear everything
+                    logout();
+                }
+            } catch (error) {
+                console.error('Error restoring session:', error);
                 logout();
             }
         }
@@ -102,38 +109,62 @@ export const AuthProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const login = async (userData, token) => {
+    const login = async (email, password, department = null, employeeId = null) => {
         try {
-            if (!token || typeof token !== 'string') {
-                throw new Error('Invalid token provided');
+            // Determine the endpoint based on whether department is provided
+            const endpoint = department ? '/api/login/official' : '/api/login/petitioner';
+
+            // Extract email if it's an object
+            const emailValue = typeof email === 'object' ? email.email : email;
+
+            const response = await fetch(`http://localhost:5000${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: emailValue,
+                    password,
+                    ...(department && { department }),
+                    ...(employeeId && { employeeId })
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Login failed');
             }
 
-            // Attempt to decode and validate the token
-            const decoded = decodeToken(token);
-            console.log('Processed token data:', decoded); // For debugging
+            // Store the token
+            localStorage.setItem('token', data.token);
 
-            // Validate token expiry
-            if (decoded.exp && decoded.exp * 1000 <= Date.now()) {
-                throw new Error('Token has expired');
-            }
+            // Set up Weavy token
+            const weavyToken = "wyu_eWxDyyTJ6HuP87pVn9sc23gtnVxVOC46S4dK";
+            localStorage.setItem('weavyToken', weavyToken);
 
-            // Store token and user data
-            localStorage.setItem('token', token);
+            // Create user object based on the response
+            const userData = {
+                id: data.user.id,
+                name: `${data.user.firstName} ${data.user.lastName}`,
+                email: data.user.email,
+                role: data.user.role,
+                ...(data.user.department && { department: data.user.department })
+            };
+
+            // Store user data in localStorage
             localStorage.setItem('user', JSON.stringify(userData));
-            setUser(userData);
-            setTokenExpiryWarning(false);
 
-            // Navigate based on user role and department
-            switch (userData.role.toLowerCase()) {
+            // Set user in state
+            setUser(userData);
+
+            // Navigate based on role
+            switch (data.user.role.toLowerCase()) {
                 case 'petitioner':
                     navigate('/petitioner/dashboard');
                     break;
                 case 'official':
-                    if (userData.department) {
-                        navigate(`/official-dashboard/${userData.department.toLowerCase()}`);
-                    } else {
-                        navigate('/official-dashboard');
-                    }
+                    navigate(`/official-dashboard/${data.user.department.toLowerCase()}`);
                     break;
                 case 'admin':
                     navigate('/admin/dashboard');
@@ -141,11 +172,10 @@ export const AuthProvider = ({ children }) => {
                 default:
                     navigate('/');
             }
+
+            return data;
         } catch (error) {
             console.error('Login error:', error);
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            setUser(null);
             throw error;
         }
     };

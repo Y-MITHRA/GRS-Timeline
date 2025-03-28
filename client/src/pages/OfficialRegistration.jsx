@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Footer from '../shared/Footer';
 import NavBar from '../components/NavBar';
-import { FileText, ArrowLeft } from 'lucide-react';
+import { FileText, ArrowLeft, MapPin } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
+
 const OfficialRegistration = () => {
   const navigate = useNavigate();
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -18,12 +21,64 @@ const OfficialRegistration = () => {
     city: '',
     state: '',
     pincode: '',
+    officeCoordinates: {
+      latitude: null,
+      longitude: null
+    },
     password: '',
     confirmPassword: ''
   });
-  
+
   const [errors, setErrors] = useState({});
-  
+
+  const getOfficeLocation = () => {
+    setIsGettingLocation(true);
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      setIsGettingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          officeCoordinates: {
+            latitude: latitude,
+            longitude: longitude
+          }
+        }));
+
+        // Get address from coordinates using reverse geocoding
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+          .then(response => response.json())
+          .then(data => {
+            setFormData(prev => ({
+              ...prev,
+              officeAddress: data.display_name,
+              city: data.address.city || data.address.town || '',
+              state: data.address.state || '',
+              pincode: data.address.postcode || ''
+            }));
+            toast.success('Office location captured successfully!');
+          })
+          .catch(error => {
+            console.error('Error getting address:', error);
+            toast.error('Could not get address from coordinates');
+          })
+          .finally(() => {
+            setIsGettingLocation(false);
+          });
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        toast.error('Could not get your location. Please enter it manually.');
+        setIsGettingLocation(false);
+      }
+    );
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -31,21 +86,21 @@ const OfficialRegistration = () => {
       [name]: value
     });
   };
-  
+
   const validateForm = () => {
     let tempErrors = {};
     let formIsValid = true;
-    
+
     if (!formData.firstName.trim()) {
       tempErrors.firstName = 'First name is required';
       formIsValid = false;
     }
-    
+
     if (!formData.lastName.trim()) {
       tempErrors.lastName = 'Last name is required';
       formIsValid = false;
     }
-    
+
     if (!formData.email.trim()) {
       tempErrors.email = 'Email is required';
       formIsValid = false;
@@ -53,7 +108,7 @@ const OfficialRegistration = () => {
       tempErrors.email = 'Email is invalid';
       formIsValid = false;
     }
-    
+
     if (!formData.phone.trim()) {
       tempErrors.phone = 'Phone number is required';
       formIsValid = false;
@@ -61,22 +116,27 @@ const OfficialRegistration = () => {
       tempErrors.phone = 'Phone number must be 10 digits';
       formIsValid = false;
     }
-    
+
     if (!formData.employeeId.trim()) {
       tempErrors.employeeId = 'Employee ID is required';
       formIsValid = false;
     }
-    
+
     if (!formData.department.trim()) {
       tempErrors.department = 'Department is required';
       formIsValid = false;
     }
-    
+
     if (!formData.designation.trim()) {
       tempErrors.designation = 'Designation is required';
       formIsValid = false;
     }
-    
+
+    if (!formData.officeCoordinates.latitude || !formData.officeCoordinates.longitude) {
+      tempErrors.officeLocation = 'Office location is required';
+      formIsValid = false;
+    }
+
     if (!formData.password) {
       tempErrors.password = 'Password is required';
       formIsValid = false;
@@ -84,31 +144,36 @@ const OfficialRegistration = () => {
       tempErrors.password = 'Password must be at least 6 characters';
       formIsValid = false;
     }
-    
+
     if (formData.password !== formData.confirmPassword) {
       tempErrors.confirmPassword = 'Passwords do not match';
       formIsValid = false;
     }
-    
+
     setErrors(tempErrors);
     return formIsValid;
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-        const response = await axios.post("http://localhost:5000/api/register/official", formData);
+      if (!validateForm()) {
+        return;
+      }
 
-        if (response.status === 201) {
-            alert("Official registration successful!");
-        } else {
-            setErrors(response.data.error || "Registration failed.");
-        }
+      const response = await axios.post("http://localhost:5000/api/register/official", formData);
+
+      if (response.status === 201) {
+        toast.success("Official registration successful!");
+        navigate('/login/official');
+      } else {
+        setErrors(response.data.error || "Registration failed.");
+      }
     } catch (error) {
-        setErrors(error.response?.data?.error || "Server error. Please try again later.");
+      toast.error(error.response?.data?.error || "Server error. Please try again later.");
     }
-};
-  
+  };
+
   return (
     <>
       <NavBar />
@@ -119,7 +184,7 @@ const OfficialRegistration = () => {
           </Link>
           <h2 className="mb-0">Official Registration</h2>
         </div>
-        
+
         <div className="card shadow-sm">
           <div className="card-body">
             <div className="row mb-4 justify-content-center">
@@ -131,7 +196,7 @@ const OfficialRegistration = () => {
                   <h4>Create Your Official Account</h4>
                   <p className="text-muted">Fill out the form below to register as a department official</p>
                 </div>
-                
+
                 <form onSubmit={handleSubmit}>
                   <div className="row g-3">
                     <div className="col-md-6">
@@ -146,7 +211,7 @@ const OfficialRegistration = () => {
                       />
                       {errors.firstName && <div className="invalid-feedback">{errors.firstName}</div>}
                     </div>
-                    
+
                     <div className="col-md-6">
                       <label htmlFor="lastName" className="form-label">Last Name*</label>
                       <input
@@ -160,7 +225,7 @@ const OfficialRegistration = () => {
                       {errors.lastName && <div className="invalid-feedback">{errors.lastName}</div>}
                     </div>
                   </div>
-                  
+
                   <div className="row g-3 mt-1">
                     <div className="col-md-6">
                       <label htmlFor="email" className="form-label">Email*</label>
@@ -174,7 +239,7 @@ const OfficialRegistration = () => {
                       />
                       {errors.email && <div className="invalid-feedback">{errors.email}</div>}
                     </div>
-                    
+
                     <div className="col-md-6">
                       <label htmlFor="phone" className="form-label">Phone*</label>
                       <input
@@ -188,7 +253,7 @@ const OfficialRegistration = () => {
                       {errors.phone && <div className="invalid-feedback">{errors.phone}</div>}
                     </div>
                   </div>
-                  
+
                   <div className="row g-3 mt-1">
                     <div className="col-md-6">
                       <label htmlFor="employeeId" className="form-label">Employee ID*</label>
@@ -202,7 +267,7 @@ const OfficialRegistration = () => {
                       />
                       {errors.employeeId && <div className="invalid-feedback">{errors.employeeId}</div>}
                     </div>
-                    
+
                     <div className="col-md-6">
                       <label htmlFor="department" className="form-label">Department*</label>
                       <select
@@ -213,43 +278,70 @@ const OfficialRegistration = () => {
                         onChange={handleChange}
                       >
                         <option value="">Select Department</option>
-                                            <option value="Water">Water</option>
-                                            <option value="RTO">RTO</option>
-                                            <option value="Electricity">Electricity</option>
+                        <option value="Water">Water</option>
+                        <option value="RTO">RTO</option>
+                        <option value="Electricity">Electricity</option>
                       </select>
                       {errors.department && <div className="invalid-feedback">{errors.department}</div>}
                     </div>
                   </div>
-                  
-                  <div className="mt-3">
-                    <label htmlFor="designation" className="form-label">Designation*</label>
-                    <input
-                      type="text"
-                      className={`form-control ${errors.designation ? 'is-invalid' : ''}`}
-                      id="designation"
-                      name="designation"
-                      value={formData.designation}
-                      onChange={handleChange}
-                      placeholder="e.g. Department Head, Assistant Director, etc."
-                    />
-                    {errors.designation && <div className="invalid-feedback">{errors.designation}</div>}
-                  </div>
-                  
-                  <div className="mt-3">
-                    <label htmlFor="officeAddress" className="form-label">Office Address</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      id="officeAddress"
-                      name="officeAddress"
-                      value={formData.officeAddress}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  
+
                   <div className="row g-3 mt-1">
-                    <div className="col-md-6">
-                      <label htmlFor="city" className="form-label">City</label>
+                    <div className="col-12">
+                      <label htmlFor="designation" className="form-label">Designation*</label>
+                      <input
+                        type="text"
+                        className={`form-control ${errors.designation ? 'is-invalid' : ''}`}
+                        id="designation"
+                        name="designation"
+                        value={formData.designation}
+                        onChange={handleChange}
+                      />
+                      {errors.designation && <div className="invalid-feedback">{errors.designation}</div>}
+                    </div>
+                  </div>
+
+                  <div className="row g-3 mt-1">
+                    <div className="col-12">
+                      <label className="form-label">Office Location*</label>
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className={`form-control ${errors.officeLocation ? 'is-invalid' : ''}`}
+                          name="officeAddress"
+                          value={formData.officeAddress}
+                          onChange={handleChange}
+                          placeholder="Enter office address or use current location"
+                          readOnly={isGettingLocation}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary"
+                          onClick={getOfficeLocation}
+                          disabled={isGettingLocation}
+                        >
+                          <MapPin className="me-2" size={18} />
+                          {isGettingLocation ? 'Getting Location...' : 'Use Current Location'}
+                        </button>
+                      </div>
+                      <div className="form-text">
+                        {formData.officeCoordinates.latitude && formData.officeCoordinates.longitude ? (
+                          <span className="text-success">
+                            ✓ Location captured: {formData.officeCoordinates.latitude.toFixed(6)}, {formData.officeCoordinates.longitude.toFixed(6)}
+                          </span>
+                        ) : (
+                          <span className="text-danger">
+                            ⚠️ Please capture your office location using the button above
+                          </span>
+                        )}
+                      </div>
+                      {errors.officeLocation && <div className="invalid-feedback">{errors.officeLocation}</div>}
+                    </div>
+                  </div>
+
+                  <div className="row g-3 mt-1">
+                    <div className="col-md-4">
+                      <label htmlFor="city" className="form-label">City*</label>
                       <input
                         type="text"
                         className="form-control"
@@ -259,50 +351,21 @@ const OfficialRegistration = () => {
                         onChange={handleChange}
                       />
                     </div>
-                    
-                    <div className="col-md-3">
-                      <label htmlFor="state" className="form-label">State</label>
-                      <select
-                        className="form-select"
+
+                    <div className="col-md-4">
+                      <label htmlFor="state" className="form-label">State*</label>
+                      <input
+                        type="text"
+                        className="form-control"
                         id="state"
                         name="state"
                         value={formData.state}
                         onChange={handleChange}
-                      >
-                        <option value="">Choose...</option>
-                        <option value="AP">Andhra Pradesh</option>
-                        <option value="AR">Arunachal Pradesh</option>
-                        <option value="AS">Assam</option>
-                        <option value="BR">Bihar</option>
-                        <option value="CG">Chhattisgarh</option>
-                        <option value="GA">Goa</option>
-                        <option value="GJ">Gujarat</option>
-                        <option value="HR">Haryana</option>
-                        <option value="HP">Himachal Pradesh</option>
-                        <option value="JH">Jharkhand</option>
-                        <option value="KA">Karnataka</option>
-                        <option value="KL">Kerala</option>
-                        <option value="MP">Madhya Pradesh</option>
-                        <option value="MH">Maharashtra</option>
-                        <option value="MN">Manipur</option>
-                        <option value="ML">Meghalaya</option>
-                        <option value="MZ">Mizoram</option>
-                        <option value="NL">Nagaland</option>
-                        <option value="OR">Odisha</option>
-                        <option value="PB">Punjab</option>
-                        <option value="RJ">Rajasthan</option>
-                        <option value="SK">Sikkim</option>
-                        <option value="TN">Tamil Nadu</option>
-                        <option value="TG">Telangana</option>
-                        <option value="TR">Tripura</option>
-                        <option value="UP">Uttar Pradesh</option>
-                        <option value="UK">Uttarakhand</option>
-                        <option value="WB">West Bengal</option>
-                      </select>
+                      />
                     </div>
-                    
-                    <div className="col-md-3">
-                      <label htmlFor="pincode" className="form-label">Pincode</label>
+
+                    <div className="col-md-4">
+                      <label htmlFor="pincode" className="form-label">Pincode*</label>
                       <input
                         type="text"
                         className="form-control"
@@ -310,11 +373,12 @@ const OfficialRegistration = () => {
                         name="pincode"
                         value={formData.pincode}
                         onChange={handleChange}
+                        pattern="[0-9]{6}"
                       />
                     </div>
                   </div>
-                  
-                  <div className="row g-3 mt-3">
+
+                  <div className="row g-3 mt-1">
                     <div className="col-md-6">
                       <label htmlFor="password" className="form-label">Password*</label>
                       <input
@@ -327,7 +391,7 @@ const OfficialRegistration = () => {
                       />
                       {errors.password && <div className="invalid-feedback">{errors.password}</div>}
                     </div>
-                    
+
                     <div className="col-md-6">
                       <label htmlFor="confirmPassword" className="form-label">Confirm Password*</label>
                       <input
@@ -341,7 +405,7 @@ const OfficialRegistration = () => {
                       {errors.confirmPassword && <div className="invalid-feedback">{errors.confirmPassword}</div>}
                     </div>
                   </div>
-                  
+
                   <div className="row mt-4">
                     <div className="col-12">
                       <div className="alert alert-info" role="alert">
@@ -349,7 +413,7 @@ const OfficialRegistration = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="row mt-2">
                     <div className="col-12">
                       <div className="form-check">
@@ -365,14 +429,14 @@ const OfficialRegistration = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="d-grid gap-2 mt-4">
                     <button type="submit" className="btn btn-success btn-lg">
                       Register as Official
                     </button>
                   </div>
                 </form>
-                
+
                 <div className="text-center mt-4">
                   <p>
                     Already have an account? <Link to="/login/official" className="text-success">Login here</Link>

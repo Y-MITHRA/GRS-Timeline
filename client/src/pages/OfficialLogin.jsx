@@ -62,23 +62,10 @@ const OfficialLogin = () => {
         if (!validateForm()) return;
 
         try {
-            const response = await fetch("http://localhost:5000/api/login/official", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                // Pass the token and user data correctly
-                await login(data.user, data.token);
-            } else {
-                setServerError(data.error || "Login failed");
-            }
+            await login(formData.email, formData.password, formData.department, formData.employeeId);
         } catch (error) {
             console.error('Login error:', error);
-            setServerError("Server error. Please try again later.");
+            setServerError(error.message || "Server error. Please try again later.");
         }
     };
 

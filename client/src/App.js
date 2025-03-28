@@ -24,7 +24,10 @@ import SubmitGrievance from './pages/SubmitGrievance';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
+  localStorage.setItem('weavyToken', 'wyu_eWxDyyTJ6HuP87pVn9sc23gtnVxVOC46S4dK');
+  console.log('Saved Token:', localStorage.getItem('weavyToken'));
   return (
+
     <Router>
       <AuthProvider>
         <Toaster

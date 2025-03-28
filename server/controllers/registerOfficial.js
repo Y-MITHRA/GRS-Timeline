@@ -76,7 +76,8 @@ export const registerOfficial = async (req, res) => {
             city,
             state,
             pincode,
-            password: hashedPassword
+            password: hashedPassword,
+            officeCoordinates: req.body.officeCoordinates
         });
 
         await newOfficial.save();

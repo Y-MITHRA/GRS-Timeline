@@ -1,5 +1,23 @@
 import Grievance from '../models/Grievance.js';
 import { mapCategoryToDepartment } from '../utils/departmentMapper.js';
+import Official from '../models/Official.js';
+
+// Helper function to calculate distance between two points using the Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function toRad(degrees) {
+    return degrees * (Math.PI / 180);
+}
 
 // Create new grievance
 export const createGrievance = async (req, res) => {
@@ -7,19 +25,20 @@ export const createGrievance = async (req, res) => {
         console.log('Received request body:', req.body);
         console.log('User from auth middleware:', req.user);
 
-        const { title, description, department, location } = req.body;
-        const petitioner = req.user.id; // From auth middleware
+        const { title, description, department, location, coordinates } = req.body;
+        const petitioner = req.user.id;
 
         // Validate required fields
-        if (!title || !description || !department || !location) {
-            console.log('Missing required fields:', { title, description, department, location });
+        if (!title || !description || !department || !location || !coordinates) {
+            console.log('Missing required fields:', { title, description, department, location, coordinates });
             return res.status(400).json({
                 error: 'Missing required fields',
                 missingFields: {
                     title: !title,
                     description: !description,
                     department: !department,
-                    location: !location
+                    location: !location,
+                    coordinates: !coordinates
                 }
             });
         }
@@ -34,6 +53,33 @@ export const createGrievance = async (req, res) => {
             });
         }
 
+        // Find nearest official based on location
+        const officials = await Official.find({ department });
+        let nearestOfficial = null;
+        let minDistance = Infinity;
+
+        officials.forEach(official => {
+            const distance = calculateDistance(
+                coordinates.latitude,
+                coordinates.longitude,
+                official.officeCoordinates.latitude,
+                official.officeCoordinates.longitude
+            );
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestOfficial = official;
+            }
+        });
+
+        console.log('Nearest official:', {
+            official: nearestOfficial ? {
+                id: nearestOfficial._id,
+                name: `${nearestOfficial.firstName} ${nearestOfficial.lastName}`,
+                distance: minDistance
+            } : null
+        });
+
         // Create new grievance
         const grievance = new Grievance({
             petitionId: `GRV${Date.now().toString().slice(-6)}`,
@@ -41,13 +87,14 @@ export const createGrievance = async (req, res) => {
             description,
             department,
             location,
+            coordinates,
             petitioner,
             status: 'pending',
             statusHistory: [{
                 status: 'pending',
                 updatedBy: petitioner,
                 updatedByType: 'petitioner',
-                comment: 'Grievance submitted'
+                comment: 'Grievance submitted and pending official acceptance'
             }]
         });
 
@@ -293,11 +340,23 @@ export const getGrievanceStatus = async (req, res) => {
 export const getUserGrievances = async (req, res) => {
     try {
         const { userId } = req.params;
+        const userRole = req.user.role;
 
-        // Find all grievances for the user
-        const grievances = await Grievance.find({ petitioner: userId })
+        console.log('Fetching grievances for user:', { userId, userRole });
+
+        // Find all grievances for the user based on their role
+        const query = userRole === 'petitioner'
+            ? { petitioner: userId }
+            : { assignedTo: userId };
+
+        console.log('Query:', query);
+
+        const grievances = await Grievance.find(query)
             .sort({ createdAt: -1 })
+            .populate('petitioner', 'firstName lastName email')
             .populate('assignedTo', 'firstName lastName email designation department');
+
+        console.log('Found grievances:', grievances.length);
 
         res.json({
             success: true,
@@ -307,7 +366,8 @@ export const getUserGrievances = async (req, res) => {
         console.error('Error fetching user grievances:', error);
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch grievances'
+            error: 'Failed to fetch grievances',
+            details: error.message
         });
     }
 };
@@ -591,5 +651,64 @@ export const startProgress = async (req, res) => {
     } catch (error) {
         console.error('Error starting grievance progress:', error);
         res.status(500).json({ error: 'Failed to start grievance progress' });
+    }
+};
+
+// Find nearest office for a grievance
+export const findNearestOffice = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const grievance = await Grievance.findById(id);
+
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        if (!grievance.coordinates) {
+            return res.status(400).json({ error: 'Grievance does not have location coordinates' });
+        }
+
+        // Define office locations (you can move these to a separate configuration file)
+        const officeLocations = {
+            Water: [
+                { name: 'Water Board Office 1', coordinates: [13.0827, 80.2707] },
+                { name: 'Water Board Office 2', coordinates: [13.0569, 80.2425] }
+            ],
+            RTO: [
+                { name: 'RTO Office 1', coordinates: [13.0827, 80.2707] },
+                { name: 'RTO Office 2', coordinates: [13.0569, 80.2425] }
+            ],
+            Electricity: [
+                { name: 'Electricity Board Office 1', coordinates: [13.0827, 80.2707] },
+                { name: 'Electricity Board Office 2', coordinates: [13.0569, 80.2425] }
+            ]
+        };
+
+        const departmentOffices = officeLocations[grievance.department];
+        if (!departmentOffices) {
+            return res.status(400).json({ error: 'Invalid department' });
+        }
+
+        // Calculate distances to all offices
+        const distances = departmentOffices.map(office => {
+            const distance = calculateDistance(
+                grievance.coordinates.latitude,
+                grievance.coordinates.longitude,
+                office.coordinates[0],
+                office.coordinates[1]
+            );
+            return { ...office, distance };
+        });
+
+        // Sort by distance and get the nearest office
+        const nearestOffice = distances.sort((a, b) => a.distance - b.distance)[0];
+
+        res.json({
+            nearestOffice,
+            allOffices: distances
+        });
+    } catch (error) {
+        console.error('Error finding nearest office:', error);
+        res.status(500).json({ error: 'Failed to find nearest office' });
     }
 }; 

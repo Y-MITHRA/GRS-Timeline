@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaUser, FaSignOutAlt, FaCheck, FaPlay, FaCheckCircle } from 'react-icons/fa';
 import io from 'socket.io-client';
 import { toast } from 'react-hot-toast';
-import { ChatComponent } from "../components/ChatComponent";
+import ChatComponent from '../components/ChatComponent';
 import "../styles/Chat.css";
 
 const WaterDashboard = () => {

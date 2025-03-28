@@ -1,83 +1,56 @@
 import React from 'react';
-import { useWeavy, WyChat } from "@weavy/uikit-react";
-import { useAuth } from "../context/AuthContext";
+import { WyChat, useWeavy } from '@weavy/uikit-react';
+import { useAuth } from '../context/AuthContext';
+import '../styles/Chat.css';
 
-export function ChatComponent({ grievanceId, assignedTo }) {
+const ChatComponent = ({ grievanceId }) => {
     const { user } = useAuth();
-
-    useWeavy({
-        url: "https://e74ed498731949bfb3c9d95f2d2455e5.weavy.io",
-        tokenFactory: async () => "wyu_SrSIdJArOxbF2aDLqijA8hd2ZkWUEe1aFobh"
-    });
-
-    // Create a unique chat ID using the grievance ID
     const chatId = `grievance-${grievanceId}`;
 
-    // Only render the chat if we have a valid user
+    // Initialize Weavy with proper configuration
+    const weavy = useWeavy({
+        url: "https://e74ed498731949bfb3c9d95f2d2455e5.weavy.io",
+        tokenFactory: async () => {
+            try {
+                const token = localStorage.getItem('weavyToken');
+                if (!token) {
+                    console.error('No Weavy token found');
+                    return null;
+                }
+                console.log('Using Weavy token:', token); // Debug log
+                return token;
+            } catch (error) {
+                console.error('Error getting Weavy token:', error);
+                return null;
+            }
+        }
+    });
+
+    // Check if user is available
     if (!user) {
-        return <div>Loading chat...</div>;
+        return <div>Loading...</div>;
     }
 
-    // Log user data for debugging
-    console.log('User data:', {
+    // Get the current user's ID
+    const currentUserId = user._id || user.id;
+
+    console.log('Chat Component Debug:', {
         user,
-        userId: user.id, // Try both id and _id
-        userRole: user.role,
-        assignedTo
-    });
-
-    // Determine if the current user is the petitioner or the assigned official
-    const isPetitioner = user.role === 'petitioner';
-    const isOfficial = user.role === 'official';
-
-    // Get the current user's ID (try both id and _id)
-    const currentUserId = user.id || user._id;
-
-    // For officials, check if they are assigned to this grievance
-    const isAssignedOfficial = isOfficial && assignedTo && (
-        currentUserId === assignedTo._id ||
-        currentUserId === assignedTo.id ||
-        currentUserId === assignedTo // Handle both object and ID cases
-    );
-
-    // Log authorization check for debugging
-    console.log('Authorization check:', {
-        isPetitioner,
-        isOfficial,
-        isAssignedOfficial,
         currentUserId,
-        assignedToId: assignedTo?.id || assignedTo?._id,
-        userMatch: assignedTo ? (
-            currentUserId === assignedTo._id ||
-            currentUserId === assignedTo.id ||
-            currentUserId === assignedTo
-        ) : false
+        grievanceId,
+        chatId,
+        weavyToken: localStorage.getItem('weavyToken')
     });
-
-    // Allow access if user is petitioner or assigned official
-    if (!isPetitioner && !isAssignedOfficial) {
-        return <div>You are not authorized to access this chat.</div>;
-    }
-
-    // Get the other participant's name for the chat title
-    const otherParticipant = isPetitioner
-        ? assignedTo ? `${assignedTo.firstName} ${assignedTo.lastName}` : 'Official'
-        : 'Petitioner';
-
-    // Ensure we have valid user IDs for the chat
-    const chatMembers = [currentUserId];
-    if (assignedTo) {
-        const assignedToId = assignedTo.id || assignedTo._id || assignedTo;
-        chatMembers.push(assignedToId);
-    }
 
     return (
-        <div className="chat-container" style={{ height: '500px' }}>
+        <div className="chat-container">
             <WyChat
                 uid={chatId}
-                title={`Chat for Grievance ${grievanceId} with ${otherParticipant}`}
-                members={chatMembers.filter(Boolean)}
+                title={`Grievance #${grievanceId}`}
+                members={[currentUserId]}
             />
         </div>
     );
-} 
+};
+
+export default ChatComponent;

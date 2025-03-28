@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import Petitioner from './Petitioner.js';
+import Official from './Official.js';
 
 const chatMessageSchema = new mongoose.Schema({
     sender: {
@@ -76,15 +78,21 @@ const grievanceSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    coordinates: {
+        type: {
+            latitude: Number,
+            longitude: Number
+        },
+        required: false
+    },
     petitioner: {
         type: mongoose.Schema.Types.ObjectId,
-        required: true,
-        ref: 'Petitioner'
+        ref: 'Petitioner',
+        required: true
     },
     assignedTo: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Official',
-        default: null
+        ref: 'Official'
     },
     status: {
         type: String,
@@ -117,6 +125,11 @@ const grievanceSchema = new mongoose.Schema({
         comment: String,
         date: Date
     },
+    attachments: [{
+        filename: String,
+        path: String,
+        uploadedAt: Date
+    }],
     createdAt: {
         type: Date,
         default: Date.now
@@ -125,6 +138,8 @@ const grievanceSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
+}, {
+    timestamps: true
 });
 
 // Update the updatedAt timestamp before saving
@@ -132,6 +147,12 @@ grievanceSchema.pre('save', function (next) {
     this.updatedAt = new Date();
     next();
 });
+
+// Index for faster queries
+grievanceSchema.index({ department: 1, status: 1 });
+grievanceSchema.index({ petitioner: 1 });
+grievanceSchema.index({ assignedTo: 1 });
+grievanceSchema.index({ coordinates: '2dsphere' }); // For geospatial queries
 
 const Grievance = mongoose.model('Grievance', grievanceSchema);
 

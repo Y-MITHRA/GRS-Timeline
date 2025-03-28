@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NavBar from '../components/NavBar';
 import Footer from '../shared/Footer';
-import { Upload, FileText } from 'lucide-react';
+import { Upload, FileText, MapPin } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const SubmitGrievance = () => {
@@ -15,6 +15,7 @@ const SubmitGrievance = () => {
         department: '',
         description: '',
         location: '',
+        coordinates: null,
         attachments: []
     });
     const [documentFile, setDocumentFile] = useState(null);
@@ -22,12 +23,54 @@ const SubmitGrievance = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [isGettingLocation, setIsGettingLocation] = useState(false);
 
     // Pre-fill user data if available
     const [userData] = useState({
         name: user?.name || '',
         email: user?.email || ''
     });
+
+    const getCurrentLocation = () => {
+        setIsGettingLocation(true);
+        if (!navigator.geolocation) {
+            toast.error('Geolocation is not supported by your browser');
+            setIsGettingLocation(false);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                setFormData(prev => ({
+                    ...prev,
+                    coordinates: { latitude, longitude }
+                }));
+                // Get address from coordinates using reverse geocoding
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        setFormData(prev => ({
+                            ...prev,
+                            location: data.display_name
+                        }));
+                        toast.success('Location captured successfully!');
+                    })
+                    .catch(error => {
+                        console.error('Error getting address:', error);
+                        toast.error('Could not get address from coordinates');
+                    })
+                    .finally(() => {
+                        setIsGettingLocation(false);
+                    });
+            },
+            (error) => {
+                console.error('Error getting location:', error);
+                toast.error('Could not get your location. Please enter it manually.');
+                setIsGettingLocation(false);
+            }
+        );
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -119,7 +162,8 @@ const SubmitGrievance = () => {
                     title: formData.title.trim(),
                     department: formData.department,
                     description: formData.description.trim(),
-                    location: formData.location.trim()
+                    location: formData.location.trim(),
+                    coordinates: formData.coordinates
                 };
 
                 console.log('Submitting grievance with data:', requestData);
@@ -148,6 +192,7 @@ const SubmitGrievance = () => {
                         department: '',
                         description: '',
                         location: '',
+                        coordinates: null,
                         attachments: []
                     });
                     toast.success('Grievance submitted successfully!');
@@ -302,15 +347,32 @@ const SubmitGrievance = () => {
 
                                             <div className="mb-3">
                                                 <label className="form-label">Location*</label>
-                                                <input
-                                                    type="text"
-                                                    className={`form-control ${errors.location ? 'is-invalid' : ''}`}
-                                                    name="location"
-                                                    value={formData.location}
-                                                    onChange={handleChange}
-                                                    placeholder="Enter location"
-                                                />
+                                                <div className="input-group">
+                                                    <input
+                                                        type="text"
+                                                        className={`form-control ${errors.location ? 'is-invalid' : ''}`}
+                                                        name="location"
+                                                        value={formData.location}
+                                                        onChange={handleChange}
+                                                        placeholder="Enter location or use current location"
+                                                        readOnly={isGettingLocation}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-secondary"
+                                                        onClick={getCurrentLocation}
+                                                        disabled={isGettingLocation}
+                                                    >
+                                                        <MapPin className="me-2" size={18} />
+                                                        {isGettingLocation ? 'Getting Location...' : 'Use Current Location'}
+                                                    </button>
+                                                </div>
                                                 {errors.location && <div className="invalid-feedback">{errors.location}</div>}
+                                                <div className="form-text">
+                                                    {formData.coordinates
+                                                        ? `Coordinates: ${formData.coordinates.latitude}, ${formData.coordinates.longitude}`
+                                                        : 'Click "Use Current Location" to automatically get your location'}
+                                                </div>
                                             </div>
 
                                             <div className="mb-3">
