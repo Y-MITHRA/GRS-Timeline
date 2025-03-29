@@ -94,6 +94,10 @@ const grievanceSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Official'
     },
+    assignedOfficials: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Official'
+    }],
     status: {
         type: String,
         required: true,

@@ -490,17 +490,25 @@ const RTODashboard = () => {
       )}
 
       {showChat && selectedGrievance && (
-        <div className="modal">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Chat for Grievance {selectedGrievance._id}</h3>
-              <button onClick={() => setShowChat(false)}>&times;</button>
-            </div>
-            <div className="modal-body">
-              <ChatComponent
-                grievanceId={selectedGrievance._id}
-                assignedTo={selectedGrievance.assignedTo}
-              />
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Chat - Grievance {selectedGrievance.grievanceId}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setShowChat(false);
+                    setSelectedGrievance(null);
+                  }}
+                ></button>
+              </div>
+              <div className="modal-body" style={{ height: '500px', padding: 0 }}>
+                <ChatComponent grievanceId={selectedGrievance.grievanceId} />
+              </div>
             </div>
           </div>
         </div>

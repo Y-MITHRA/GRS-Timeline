@@ -1,10 +1,11 @@
+
+
+
 import express from 'express';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import Admin from '../models/Admin.js';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 // ✅ Admin Registration
 router.post('/register', async (req, res) => {
@@ -47,7 +48,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// Admin Login with JWT
+// ✅ Admin Login (Without JWT)
 router.post('/login', async (req, res) => {
     try {
         const { adminId, email, password } = req.body;
@@ -72,31 +73,7 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid password' });
         }
 
-        // Generate JWT token
-        const token = jwt.sign(
-            {
-                id: admin._id,
-                role: 'admin',
-                adminId: admin.adminId,
-                email: admin.email
-            },
-            JWT_SECRET,
-            { expiresIn: '24h' }
-        );
-
-        // Return success response with token and user data
-        res.status(200).json({
-            message: 'Login successful',
-            token,
-            user: {
-                id: admin._id,
-                firstName: admin.firstName,
-                lastName: admin.lastName,
-                email: admin.email,
-                adminId: admin.adminId,
-                role: 'admin'
-            }
-        });
+        res.status(200).json({ message: 'Login successful', adminId: admin.adminId, email: admin.email });
     } catch (error) {
         console.error("Login Error:", error);
         res.status(500).json({ message: 'Server error' });

@@ -55,9 +55,10 @@ export const createGrievance = async (req, res) => {
 
         // Find nearest official based on location
         const officials = await Official.find({ department });
-        let nearestOfficial = null;
         let minDistance = Infinity;
+        let nearestOfficeCoordinates = null;
 
+        // Find the nearest office
         officials.forEach(official => {
             const distance = calculateDistance(
                 coordinates.latitude,
@@ -68,17 +69,24 @@ export const createGrievance = async (req, res) => {
 
             if (distance < minDistance) {
                 minDistance = distance;
-                nearestOfficial = official;
+                nearestOfficeCoordinates = official.officeCoordinates;
             }
         });
 
-        console.log('Nearest official:', {
-            official: nearestOfficial ? {
-                id: nearestOfficial._id,
-                name: `${nearestOfficial.firstName} ${nearestOfficial.lastName}`,
-                distance: minDistance
-            } : null
-        });
+        if (!nearestOfficeCoordinates) {
+            return res.status(404).json({ error: 'No officials found for the specified department' });
+        }
+
+        // Get all officials in that office
+        const nearestOfficeOfficials = officials.filter(official =>
+            official.officeCoordinates.latitude === nearestOfficeCoordinates.latitude &&
+            official.officeCoordinates.longitude === nearestOfficeCoordinates.longitude
+        );
+
+        console.log('Nearest office officials:', nearestOfficeOfficials.map(o => ({
+            id: o._id,
+            name: `${o.firstName} ${o.lastName}`
+        })));
 
         // Create new grievance
         const grievance = new Grievance({
@@ -90,11 +98,12 @@ export const createGrievance = async (req, res) => {
             coordinates,
             petitioner,
             status: 'pending',
+            assignedOfficials: nearestOfficeOfficials.map(o => o._id), // Store all official IDs
             statusHistory: [{
                 status: 'pending',
                 updatedBy: petitioner,
                 updatedByType: 'petitioner',
-                comment: 'Grievance submitted and pending official acceptance'
+                comment: `Grievance submitted and pending acceptance by officials at ${nearestOfficeCoordinates.latitude}, ${nearestOfficeCoordinates.longitude}`
             }]
         });
 
@@ -103,7 +112,17 @@ export const createGrievance = async (req, res) => {
 
         res.status(201).json({
             message: 'Grievance created successfully',
-            grievance
+            grievance,
+            assignedOfficials: nearestOfficeOfficials.map(o => ({
+                id: o._id,
+                name: `${o.firstName} ${o.lastName}`,
+                distance: calculateDistance(
+                    coordinates.latitude,
+                    coordinates.longitude,
+                    o.officeCoordinates.latitude,
+                    o.officeCoordinates.longitude
+                )
+            }))
         });
     } catch (error) {
         console.error('Error creating grievance:', error);
@@ -258,11 +277,14 @@ export const declineGrievance = async (req, res) => {
 
         // Update grievance status history
         grievance.statusHistory.push({
-            status: 'pending',
+            status: 'rejected',
             updatedBy: officialId,
-            updatedByType: 'Official',
+            updatedByType: 'official',
             comment: `Declined: ${reason}`
         });
+
+        // Update grievance status
+        grievance.status = 'rejected';
 
         await grievance.save();
 
@@ -457,6 +479,7 @@ export const uploadResolutionDocument = async (req, res) => {
     try {
         const { id } = req.params;
         const officialId = req.user.id;
+        const officialDepartment = req.user.department;
 
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -467,8 +490,13 @@ export const uploadResolutionDocument = async (req, res) => {
             return res.status(404).json({ error: 'Grievance not found' });
         }
 
-        if (grievance.assignedTo.toString() !== officialId) {
+        // Check if official is in the assigned officials list
+        if (!grievance.assignedOfficials.includes(officialId)) {
             return res.status(403).json({ error: 'Not authorized to upload resolution document' });
+        }
+
+        if (grievance.department !== officialDepartment) {
+            return res.status(403).json({ error: 'Not authorized to handle grievances from other departments' });
         }
 
         // Update grievance with document details
@@ -477,6 +505,14 @@ export const uploadResolutionDocument = async (req, res) => {
             path: req.file.path,
             uploadedAt: new Date()
         };
+
+        // Update status history
+        grievance.statusHistory.push({
+            status: grievance.status,
+            updatedBy: officialId,
+            updatedByType: 'official',
+            comment: 'Resolution document uploaded'
+        });
 
         await grievance.save();
 
@@ -711,4 +747,148 @@ export const findNearestOffice = async (req, res) => {
         console.error('Error finding nearest office:', error);
         res.status(500).json({ error: 'Failed to find nearest office' });
     }
-}; 
+};
+
+// Upload document and create grievance
+export const uploadDocumentAndCreateGrievance = async (req, res) => {
+    try {
+        const { department, location, coordinates } = req.body;
+        const petitioner = req.user.id;
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        // Validate required fields
+        if (!department || !location || !coordinates) {
+            return res.status(400).json({
+                error: 'Missing required fields',
+                missingFields: {
+                    department: !department,
+                    location: !location,
+                    coordinates: !coordinates
+                }
+            });
+        }
+
+        // Parse coordinates if they're sent as a string
+        const parsedCoordinates = typeof coordinates === 'string' ? JSON.parse(coordinates) : coordinates;
+
+        // Find nearest office and its officials
+        const officials = await Official.find({ department });
+        let minDistance = Infinity;
+        let nearestOfficeCoordinates = null;
+
+        // Find the nearest office
+        officials.forEach(official => {
+            const distance = calculateDistance(
+                parsedCoordinates.latitude,
+                parsedCoordinates.longitude,
+                official.officeCoordinates.latitude,
+                official.officeCoordinates.longitude
+            );
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestOfficeCoordinates = official.officeCoordinates;
+            }
+        });
+
+        if (!nearestOfficeCoordinates) {
+            return res.status(404).json({ error: 'No officials found for the specified department' });
+        }
+
+        // Get all officials in that office
+        const nearestOfficeOfficials = officials.filter(official =>
+            official.officeCoordinates.latitude === nearestOfficeCoordinates.latitude &&
+            official.officeCoordinates.longitude === nearestOfficeCoordinates.longitude
+        );
+
+        console.log('Nearest office officials:', nearestOfficeOfficials.map(o => ({
+            id: o._id,
+            name: `${o.firstName} ${o.lastName}`
+        })));
+
+        // Create new grievance with document
+        const grievance = new Grievance({
+            petitionId: `GRV${Date.now().toString().slice(-6)}`,
+            title: `Document Grievance - ${req.file.originalname}`,
+            description: `Grievance submitted via document upload from location: ${location}`,
+            department,
+            location,
+            coordinates: parsedCoordinates,
+            petitioner,
+            status: 'pending',
+            assignedOfficials: nearestOfficeOfficials.map(o => o._id),
+            document: {
+                filename: req.file.originalname,
+                path: req.file.path,
+                uploadedAt: new Date()
+            },
+            statusHistory: [{
+                status: 'pending',
+                updatedBy: petitioner,
+                updatedByType: 'petitioner',
+                comment: `Document grievance submitted and pending acceptance by officials at ${nearestOfficeCoordinates.latitude}, ${nearestOfficeCoordinates.longitude}`
+            }]
+        });
+
+        await grievance.save();
+        console.log('Document grievance saved successfully:', grievance);
+
+        res.status(201).json({
+            message: 'Document grievance created successfully',
+            grievance,
+            assignedOfficials: nearestOfficeOfficials.map(o => ({
+                id: o._id,
+                name: `${o.firstName} ${o.lastName}`,
+                distance: calculateDistance(
+                    parsedCoordinates.latitude,
+                    parsedCoordinates.longitude,
+                    o.officeCoordinates.latitude,
+                    o.officeCoordinates.longitude
+                )
+            }))
+        });
+    } catch (error) {
+        console.error('Error creating document grievance:', error);
+        res.status(500).json({
+            error: 'Failed to create document grievance',
+            details: error.message
+        });
+    }
+};
+
+// Helper function to get coordinates from location string
+async function getCoordinatesFromLocation(location) {
+    try {
+        // This is a placeholder for geocoding implementation
+        // You should implement this using your preferred geocoding service
+        // For example, using Google Maps Geocoding API:
+        /*
+        const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json`, {
+            params: {
+                address: location,
+                key: process.env.GOOGLE_MAPS_API_KEY
+            }
+        });
+
+        if (response.data.results && response.data.results.length > 0) {
+            const { lat, lng } = response.data.results[0].geometry.location;
+            return {
+                latitude: lat,
+                longitude: lng
+            };
+        }
+        */
+
+        // For now, return dummy coordinates
+        return {
+            latitude: 13.0827,
+            longitude: 80.2707
+        };
+    } catch (error) {
+        console.error('Error getting coordinates:', error);
+        return null;
+    }
+} 

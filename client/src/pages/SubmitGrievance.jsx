@@ -46,7 +46,7 @@ const SubmitGrievance = () => {
                     ...prev,
                     coordinates: { latitude, longitude }
                 }));
-                // Get address from coordinates using reverse geocoding
+                // Get address from coordinates using OpenStreetMap's Nominatim
                 fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`)
                     .then(response => response.json())
                     .then(data => {
@@ -207,12 +207,21 @@ const SubmitGrievance = () => {
                     }, 1500);
                 }
             } else if (activeTab === 'document' && documentFile) {
-                const formData = new FormData();
-                formData.append('document', documentFile);
+                const formDataToSubmit = new FormData();
+                formDataToSubmit.append('document', documentFile);
+                formDataToSubmit.append('department', formData.department);
+                formDataToSubmit.append('location', formData.location);
+                formDataToSubmit.append('coordinates', JSON.stringify(formData.coordinates));
+
+                console.log('Submitting document with data:', {
+                    department: formData.department,
+                    location: formData.location,
+                    coordinates: formData.coordinates
+                });
 
                 const response = await authenticatedFetch('http://localhost:5000/api/grievances/document', {
                     method: 'POST',
-                    body: formData
+                    body: formDataToSubmit
                 });
 
                 if (!response.ok) {
@@ -224,6 +233,14 @@ const SubmitGrievance = () => {
                 if (data.message === 'Document processed successfully') {
                     setSubmitSuccess(true);
                     setDocumentFile(null);
+                    setFormData({
+                        title: '',
+                        department: '',
+                        description: '',
+                        location: '',
+                        coordinates: null,
+                        attachments: []
+                    });
                     toast.success('Document submitted successfully!');
 
                     setTimeout(() => {
@@ -411,7 +428,7 @@ const SubmitGrievance = () => {
                                     {/* Document Upload */}
                                     {activeTab === 'document' && (
                                         <div className="mb-4">
-                                            <h5>Upload Document</h5>
+                                            <h5>Document Upload</h5>
                                             <div className="alert alert-info">
                                                 <p className="mb-0">Supported document types:</p>
                                                 <ul className="mb-0">
@@ -423,20 +440,66 @@ const SubmitGrievance = () => {
                                             </div>
 
                                             <div className="mb-3">
+                                                <label className="form-label">Department*</label>
+                                                <select
+                                                    className={`form-select ${errors.department ? 'is-invalid' : ''}`}
+                                                    name="department"
+                                                    value={formData.department}
+                                                    onChange={handleChange}
+                                                >
+                                                    <option value="">Select Department</option>
+                                                    <option value="Water">Water Department</option>
+                                                    <option value="RTO">RTO</option>
+                                                    <option value="Electricity">Electricity Department</option>
+                                                </select>
+                                                {errors.department && <div className="invalid-feedback">{errors.department}</div>}
+                                            </div>
+
+                                            <div className="mb-3">
                                                 <label className="form-label">Upload Document*</label>
                                                 <div className="input-group">
                                                     <input
                                                         type="file"
                                                         className={`form-control ${errors.document ? 'is-invalid' : ''}`}
-                                                        onChange={handleFileChange}
+                                                        onChange={(e) => setDocumentFile(e.target.files[0])}
                                                         accept=".pdf,.jpg,.jpeg,.png"
                                                     />
                                                     <span className="input-group-text">
                                                         <Upload size={20} />
                                                     </span>
                                                 </div>
-                                                {errors.document && <div className="text-danger small mt-1">{errors.document}</div>}
+                                                {errors.document && <div className="invalid-feedback">{errors.document}</div>}
                                                 <div className="form-text">Max file size: 5MB. Supported formats: PDF, JPG, PNG</div>
+                                            </div>
+
+                                            <div className="mb-3">
+                                                <label className="form-label">Location*</label>
+                                                <div className="input-group">
+                                                    <input
+                                                        type="text"
+                                                        className={`form-control ${errors.location ? 'is-invalid' : ''}`}
+                                                        name="location"
+                                                        value={formData.location}
+                                                        onChange={handleChange}
+                                                        placeholder="Enter location or use current location"
+                                                        readOnly={isGettingLocation}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-secondary"
+                                                        onClick={getCurrentLocation}
+                                                        disabled={isGettingLocation}
+                                                    >
+                                                        <MapPin className="me-2" size={18} />
+                                                        {isGettingLocation ? 'Getting Location...' : 'Use Current Location'}
+                                                    </button>
+                                                </div>
+                                                {errors.location && <div className="invalid-feedback">{errors.location}</div>}
+                                                <div className="form-text">
+                                                    {formData.coordinates
+                                                        ? `Coordinates: ${formData.coordinates.latitude}, ${formData.coordinates.longitude}`
+                                                        : 'Click "Use Current Location" to automatically get your location'}
+                                                </div>
                                             </div>
                                         </div>
                                     )}

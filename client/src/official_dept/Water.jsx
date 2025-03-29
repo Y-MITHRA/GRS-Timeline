@@ -4,7 +4,6 @@ import NavBar_Departments from "../components/NavBar_Departments";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaUser, FaSignOutAlt, FaCheck, FaPlay, FaCheckCircle } from 'react-icons/fa';
-import io from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 import ChatComponent from '../components/ChatComponent';
 import "../styles/Chat.css";
@@ -31,11 +30,8 @@ const WaterDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedGrievance, setSelectedGrievance] = useState(null);
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatMessages, setChatMessages] = useState([]);
-  const [declineReason, setDeclineReason] = useState("");
   const [showDeclineModal, setShowDeclineModal] = useState(false);
-  const [socket, setSocket] = useState(null);
+  const [declineReason, setDeclineReason] = useState("");
   const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
@@ -51,37 +47,6 @@ const WaterDashboard = () => {
     // Fetch initial data
     fetchGrievances();
   }, [user, navigate, activeTab]);
-
-  useEffect(() => {
-    if (selectedGrievance) {
-      fetchChatMessages(selectedGrievance._id);
-    }
-  }, [selectedGrievance]);
-
-  useEffect(() => {
-    // Initialize socket connection
-    const newSocket = io('http://localhost:5000');
-    setSocket(newSocket);
-
-    return () => newSocket.close();
-  }, []);
-
-  useEffect(() => {
-    if (socket && selectedGrievance) {
-      // Join chat room
-      socket.emit('join-chat', selectedGrievance._id);
-
-      // Listen for new messages
-      socket.on('new-message', (message) => {
-        setChatMessages(prev => [...prev, message]);
-      });
-
-      return () => {
-        socket.emit('leave-chat', selectedGrievance._id);
-        socket.off('new-message');
-      };
-    }
-  }, [socket, selectedGrievance]);
 
   const fetchGrievances = async () => {
     try {
@@ -126,30 +91,6 @@ const WaterDashboard = () => {
       setError('Failed to load grievances. Please try again later.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchChatMessages = async (grievanceId) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/chat`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch chat messages');
-      }
-
-      const data = await response.json();
-      setChatMessages(data.messages);
-    } catch (error) {
-      console.error('Error fetching chat messages:', error);
     }
   };
 
@@ -298,40 +239,6 @@ const WaterDashboard = () => {
     }
   };
 
-  const sendChatMessage = async () => {
-    if (!chatMessage.trim() || !selectedGrievance) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      const response = await fetch(`http://localhost:5000/api/grievances/${selectedGrievance._id}/chat`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ message: chatMessage })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send message');
-      }
-
-      setChatMessage("");
-    } catch (error) {
-      console.error('Error sending chat message:', error);
-      setError('Failed to send message. Please try again.');
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   const handleViewChat = (grievance) => {
     setSelectedGrievance(grievance);
     setShowChat(true);
@@ -369,7 +276,7 @@ const WaterDashboard = () => {
               <span className="icon">⚙️</span>
               <span>Settings</span>
             </div>
-            <div className="menu-item" onClick={handleLogout}>
+            <div className="menu-item" onClick={logout}>
               <span className="icon">🚪</span>
               <span>Logout</span>
             </div>
@@ -578,36 +485,6 @@ const WaterDashboard = () => {
                     <p><strong>Assigned to:</strong> {selectedGrievance.assignedTo.name}</p>
                   )}
                 </div>
-
-                {(activeTab === 'assigned' || activeTab === 'myQueries') && (
-                  <div className="chat-section">
-                    <div className="chat-messages">
-                      {chatMessages.map((msg, index) => (
-                        <div
-                          key={index}
-                          className={`chat-message ${msg.senderType === 'Official' ? 'sent' : 'received'}`}
-                        >
-                          <div className="message-content">
-                            <p>{msg.message}</p>
-                            <span className="message-time">
-                              {new Date(msg.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="chat-input">
-                      <input
-                        type="text"
-                        placeholder="Type your message..."
-                        value={chatMessage}
-                        onChange={(e) => setChatMessage(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                      />
-                      <button onClick={sendChatMessage}>Send</button>
-                    </div>
-                  </div>
-                )}
               </div>
             </aside>
           )}
@@ -671,24 +548,24 @@ const WaterDashboard = () => {
       )}
 
       {showChat && selectedGrievance && (
-        <div className="modal fade show" style={{ display: 'block' }}>
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
           <div className="modal-dialog modal-lg">
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">
-                  Chat for Grievance: {selectedGrievance.grievanceId}
+                  Chat - Grievance {selectedGrievance.grievanceId}
                 </h5>
                 <button
                   type="button"
                   className="btn-close"
-                  onClick={() => setShowChat(false)}
+                  onClick={() => {
+                    setShowChat(false);
+                    setSelectedGrievance(null);
+                  }}
                 ></button>
               </div>
-              <div className="modal-body">
-                <ChatComponent
-                  grievanceId={selectedGrievance._id}
-                  assignedTo={selectedGrievance.assignedTo}
-                />
+              <div className="modal-body" style={{ height: '500px', padding: 0 }}>
+                <ChatComponent grievanceId={selectedGrievance._id} />
               </div>
             </div>
           </div>

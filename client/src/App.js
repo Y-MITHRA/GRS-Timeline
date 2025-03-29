@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
@@ -24,10 +24,11 @@ import SubmitGrievance from './pages/SubmitGrievance';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
-  localStorage.setItem('weavyToken', 'wyu_eWxDyyTJ6HuP87pVn9sc23gtnVxVOC46S4dK');
-  console.log('Saved Token:', localStorage.getItem('weavyToken'));
-  return (
+  useEffect(() => {
+    // Any initialization code if needed
+  }, []);
 
+  return (
     <Router>
       <AuthProvider>
         <Toaster

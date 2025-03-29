@@ -19,7 +19,8 @@ import {
     uploadResolutionDocument,
     submitFeedback,
     getOfficialFeedback,
-    findNearestOffice
+    findNearestOffice,
+    uploadDocumentAndCreateGrievance
 } from '../controllers/grievanceController.js';
 import { processDocument, upload } from '../controllers/documentController.js';
 
@@ -97,5 +98,8 @@ router.post('/:id/chat', auth, sendChatMessage);
 
 // Find nearest office for a grievance
 router.get('/:id/nearest-office', auth, findNearestOffice);
+
+// Upload document and create grievance
+router.post('/upload-document', auth, upload.single('document'), uploadDocumentAndCreateGrievance);
 
 export default router;  

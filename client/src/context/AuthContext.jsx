@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getRedirectPath } from '../utils/authUtils';
 
 const AuthContext = createContext(null);
 
@@ -109,85 +110,48 @@ export const AuthProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const login = async (email, password, department = null, employeeId = null, adminId = null) => {
+    const login = async (email, password, department = null, employeeId = null) => {
         try {
-            // Determine the endpoint based on the login type
-            let endpoint;
-            let requestBody;
+            // Determine the endpoint based on whether department is provided
+            const endpoint = department ? '/api/login/official' : '/api/login/petitioner';
 
-            if (adminId) {
-                // Admin login
-                endpoint = '/api/admin/login';
-                requestBody = {
-                    adminId,
-                    email,
-                    password
-                };
-            } else if (department) {
-                // Official login
-                endpoint = '/api/login/official';
-                requestBody = {
-                    email,
-                    password,
-                    department,
-                    employeeId
-                };
-            } else {
-                // Petitioner login
-                endpoint = '/api/login/petitioner';
-                requestBody = {
-                    email,
-                    password
-                };
-            }
+            // Extract email if it's an object
+            const emailValue = typeof email === 'object' ? email.email : email;
 
             const response = await fetch(`http://localhost:5000${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({
+                    email: emailValue,
+                    password,
+                    ...(department && { department }),
+                    ...(employeeId && { employeeId })
+                })
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.message || 'Login failed');
+                throw new Error(data.error || 'Login failed');
             }
 
-            // Store the token
+            // Store token in localStorage
             localStorage.setItem('token', data.token);
 
-            // Create user object based on the response
-            const userData = {
-                id: data.user.id,
-                name: `${data.user.firstName} ${data.user.lastName}`,
-                email: data.user.email,
-                role: data.user.role,
-                ...(data.user.department && { department: data.user.department }),
-                ...(data.user.adminId && { adminId: data.user.adminId })
-            };
-
-            // Store user data in localStorage
-            localStorage.setItem('user', JSON.stringify(userData));
-
             // Set user in state
-            setUser(userData);
+            setUser(data.user);
+            console.log('Raw decoded token:', data.user);
 
             // Navigate based on role
-            switch (userData.role.toLowerCase()) {
-                case 'admin':
-                    navigate('/admin/dashboard');
-                    break;
-                case 'official':
-                    navigate('/official-dashboard');
-                    break;
-                case 'petitioner':
-                    navigate('/petitioner-dashboard');
-                    break;
-                default:
-                    navigate('/');
+            if (data.user.role === 'petitioner') {
+                navigate('/petitioner/dashboard');
+            } else if (data.user.role === 'official') {
+                navigate(getRedirectPath('official', data.user.department));
             }
+
+            return data;
         } catch (error) {
             console.error('Login error:', error);
             throw error;

@@ -313,21 +313,24 @@ const PetitionerDashboard = () => {
 
                 {/* Chat Modal */}
                 {showChat && selectedGrievance && (
-                    <div className="modal fade show" style={{ display: 'block' }}>
+                    <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
                         <div className="modal-dialog modal-lg">
                             <div className="modal-content">
                                 <div className="modal-header">
                                     <h5 className="modal-title">
-                                        Chat for Grievance: {selectedGrievance.grievanceId}
+                                        Chat - Grievance {selectedGrievance.grievanceId}
                                     </h5>
                                     <button
                                         type="button"
                                         className="btn-close"
-                                        onClick={() => setShowChat(false)}
+                                        onClick={() => {
+                                            setShowChat(false);
+                                            setSelectedGrievance(null);
+                                        }}
                                     ></button>
                                 </div>
-                                <div className="modal-body">
-                                    <ChatComponent grievanceId={selectedGrievance._id} />
+                                <div className="modal-body" style={{ height: '500px', padding: 0 }}>
+                                    <ChatComponent grievanceId={selectedGrievance.grievanceId} />
                                 </div>
                             </div>
                         </div>

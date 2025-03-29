@@ -60,10 +60,31 @@ const AdminLogin = () => {
         if (!validateForm()) return;
 
         try {
-            // Use the AuthContext login function with admin credentials
-            await login(formData.email, formData.password, null, null, formData.adminId);
+            const response = await fetch("http://localhost:5000/api/admin/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(formData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Use the AuthContext login function
+                login({
+                    token: data.token,
+                    userType: 'admin',
+                    email: formData.email,
+                    adminId: formData.adminId,
+                    name: data.name || null
+                });
+
+                // Redirect to admin dashboard
+                navigate(getRedirectPath('admin'));
+            } else {
+                setServerError(data.message || "Login failed");
+            }
         } catch (error) {
-            setServerError(error.message || "Login failed");
+            setServerError("Server error. Please try again later.");
         }
     };
 
