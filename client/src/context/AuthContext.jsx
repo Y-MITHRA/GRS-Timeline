@@ -109,39 +109,54 @@ export const AuthProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const login = async (email, password, department = null, employeeId = null) => {
+    const login = async (email, password, department = null, employeeId = null, adminId = null) => {
         try {
-            // Determine the endpoint based on whether department is provided
-            const endpoint = department ? '/api/login/official' : '/api/login/petitioner';
+            // Determine the endpoint based on the login type
+            let endpoint;
+            let requestBody;
 
-            // Extract email if it's an object
-            const emailValue = typeof email === 'object' ? email.email : email;
+            if (adminId) {
+                // Admin login
+                endpoint = '/api/admin/login';
+                requestBody = {
+                    adminId,
+                    email,
+                    password
+                };
+            } else if (department) {
+                // Official login
+                endpoint = '/api/login/official';
+                requestBody = {
+                    email,
+                    password,
+                    department,
+                    employeeId
+                };
+            } else {
+                // Petitioner login
+                endpoint = '/api/login/petitioner';
+                requestBody = {
+                    email,
+                    password
+                };
+            }
 
             const response = await fetch(`http://localhost:5000${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    email: emailValue,
-                    password,
-                    ...(department && { department }),
-                    ...(employeeId && { employeeId })
-                })
+                body: JSON.stringify(requestBody)
             });
 
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error || 'Login failed');
+                throw new Error(data.message || 'Login failed');
             }
 
             // Store the token
             localStorage.setItem('token', data.token);
-
-            // Set up Weavy token
-            const weavyToken = "wyu_eWxDyyTJ6HuP87pVn9sc23gtnVxVOC46S4dK";
-            localStorage.setItem('weavyToken', weavyToken);
 
             // Create user object based on the response
             const userData = {
@@ -149,7 +164,8 @@ export const AuthProvider = ({ children }) => {
                 name: `${data.user.firstName} ${data.user.lastName}`,
                 email: data.user.email,
                 role: data.user.role,
-                ...(data.user.department && { department: data.user.department })
+                ...(data.user.department && { department: data.user.department }),
+                ...(data.user.adminId && { adminId: data.user.adminId })
             };
 
             // Store user data in localStorage
@@ -159,21 +175,19 @@ export const AuthProvider = ({ children }) => {
             setUser(userData);
 
             // Navigate based on role
-            switch (data.user.role.toLowerCase()) {
-                case 'petitioner':
-                    navigate('/petitioner/dashboard');
-                    break;
-                case 'official':
-                    navigate(`/official-dashboard/${data.user.department.toLowerCase()}`);
-                    break;
+            switch (userData.role.toLowerCase()) {
                 case 'admin':
                     navigate('/admin/dashboard');
+                    break;
+                case 'official':
+                    navigate('/official-dashboard');
+                    break;
+                case 'petitioner':
+                    navigate('/petitioner-dashboard');
                     break;
                 default:
                     navigate('/');
             }
-
-            return data;
         } catch (error) {
             console.error('Login error:', error);
             throw error;

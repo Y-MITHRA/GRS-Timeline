@@ -12,15 +12,27 @@ const ChatComponent = ({ grievanceId }) => {
         url: "https://e74ed498731949bfb3c9d95f2d2455e5.weavy.io",
         tokenFactory: async () => {
             try {
-                const token = localStorage.getItem('weavyToken');
-                if (!token) {
-                    console.error('No Weavy token found');
+                // Get user data
+                const userData = JSON.parse(localStorage.getItem('user') || '{}');
+                if (!userData.id) {
+                    console.error('No user data found');
                     return null;
                 }
-                console.log('Using Weavy token:', token); // Debug log
-                return token;
+
+                // Create a Weavy user token with the correct format
+                const weavyToken = {
+                    uid: userData.id,
+                    name: userData.name,
+                    email: userData.email,
+                    role: userData.role,
+                    department: userData.department,
+                    access_token: "wyu_S4DByQSLiRV7vJnc5NR35UcVTwUGwI3mshBE"
+                };
+
+                console.log('Generated Weavy token:', weavyToken);
+                return weavyToken;
             } catch (error) {
-                console.error('Error getting Weavy token:', error);
+                console.error('Error generating Weavy token:', error);
                 return null;
             }
         }
@@ -32,14 +44,13 @@ const ChatComponent = ({ grievanceId }) => {
     }
 
     // Get the current user's ID
-    const currentUserId = user._id || user.id;
+    const currentUserId = user.id;
 
     console.log('Chat Component Debug:', {
         user,
         currentUserId,
         grievanceId,
-        chatId,
-        weavyToken: localStorage.getItem('weavyToken')
+        chatId
     });
 
     return (
@@ -48,6 +59,27 @@ const ChatComponent = ({ grievanceId }) => {
                 uid={chatId}
                 title={`Grievance #${grievanceId}`}
                 members={[currentUserId]}
+                options={{
+                    authentication: {
+                        headers: {
+                            'Authorization': `Bearer wyu_S4DByQSLiRV7vJnc5NR35UcVTwUGwI3mshBE`,
+                            'Content-Type': 'application/json'
+                        }
+                    },
+                    features: {
+                        chat: {
+                            enabled: true,
+                            maxMessageLength: 1000,
+                            typingIndicator: true,
+                            readReceipts: true
+                        }
+                    },
+                    app: {
+                        uid: chatId,
+                        name: `Grievance #${grievanceId}`,
+                        type: 'chat'
+                    }
+                }}
             />
         </div>
     );
