@@ -565,7 +565,11 @@ const WaterDashboard = () => {
                 ></button>
               </div>
               <div className="modal-body" style={{ height: '500px', padding: 0 }}>
-                <ChatComponent grievanceId={selectedGrievance._id} />
+                <ChatComponent 
+                  grievanceId={selectedGrievance._id}
+                  petitionerId={selectedGrievance.petitioner?._id || selectedGrievance.petitioner}
+                  officialId={user.id}
+                />
               </div>
             </div>
           </div>

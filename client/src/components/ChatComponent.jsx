@@ -14,19 +14,57 @@ import { useAuth } from '../context/AuthContext';
 
 const STREAM_API_KEY = 'pnn5rnnuzvzq';
 
-const ChatComponent = ({ grievanceId }) => {
+const ChatComponent = ({ grievanceId, petitionerId, officialId }) => {
     const { user } = useAuth();
     const [client, setClient] = useState(null);
     const [channel, setChannel] = useState(null);
     const [error, setError] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const initChat = async () => {
             try {
-                console.log('Initializing chat for user:', user.id, 'grievance:', grievanceId);
+                setLoading(true);
+                console.log('Chat initialization data:', {
+                    currentUser: {
+                        id: user?.id,
+                        name: user?.name,
+                        email: user?.email,
+                        role: user?.role
+                    },
+                    grievanceData: {
+                        grievanceId,
+                        petitionerId,
+                        officialId
+                    }
+                });
+
+                // Validate user context
+                if (!user) {
+                    throw new Error('User context is not available. Please log in again.');
+                }
+
+                if (!user.id) {
+                    throw new Error('User ID is missing. Please log in again.');
+                }
+
+                // Validate required props
+                if (!grievanceId) {
+                    throw new Error('Grievance ID is missing');
+                }
+
+                // For petitioner view
+                if (user.role === 'petitioner' && !officialId) {
+                    throw new Error('Official ID is missing');
+                }
+
+                // For official view
+                if (user.role === 'official' && !petitionerId) {
+                    throw new Error('Petitioner ID is missing');
+                }
 
                 // Get token from backend
-                const response = await fetch('http://localhost:5000/api/chat/token', {
+                const tokenResponse = await fetch('http://localhost:5000/api/chat/token', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -36,66 +74,110 @@ const ChatComponent = ({ grievanceId }) => {
                     body: JSON.stringify({ userId: user.id })
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Error response:', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        body: errorText
-                    });
-                    throw new Error(`Failed to get chat token: ${response.status} ${response.statusText}`);
+                if (!tokenResponse.ok) {
+                    const errorText = await tokenResponse.text();
+                    console.error('Token response error:', errorText);
+                    throw new Error(`Failed to get chat token: ${tokenResponse.status}`);
                 }
 
-                const data = await response.json();
-                console.log('Received response:', data);
+                const tokenData = await tokenResponse.json();
+                console.log('Received token data:', { hasToken: !!tokenData.token });
 
-                if (!data.token) {
+                if (!tokenData.token) {
                     throw new Error('No token received from server');
                 }
 
                 // Initialize chat client
                 const chatClient = StreamChat.getInstance(STREAM_API_KEY);
+                console.log('Created Stream Chat client');
+
+                // Connect user
                 await chatClient.connectUser(
                     {
                         id: user.id,
                         name: user.name || user.email,
                         email: user.email
                     },
-                    data.token
+                    tokenData.token
                 );
+                console.log('Connected user to Stream Chat');
 
                 // Create or join channel
-                const channel = chatClient.channel('messaging', `grievance-${grievanceId}`, {
+                const channelId = `grievance-${grievanceId}`;
+                console.log('Creating channel with ID:', channelId);
+
+                // Determine member IDs based on user role
+                let memberIds;
+                if (user.role === 'petitioner') {
+                    memberIds = [String(user.id), String(officialId)];
+                } else {
+                    memberIds = [String(petitionerId), String(user.id)];
+                }
+                console.log('Channel members:', memberIds);
+
+                const channel = chatClient.channel('messaging', channelId, {
                     name: `Grievance Chat ${grievanceId}`,
                     grievance_id: grievanceId,
+                    members: memberIds
                 });
 
+                console.log('Channel created, watching...');
                 await channel.watch();
+                console.log('Channel watch completed');
+
                 setChannel(channel);
                 setClient(chatClient);
+                setError(null);
             } catch (error) {
-                console.error('Error initializing chat:', error);
+                console.error('Error in chat initialization:', error);
                 setError(error.message);
+            } finally {
+                setLoading(false);
             }
         };
 
-        if (user && grievanceId) {
-            initChat();
-        }
+        initChat();
 
         return () => {
             if (client) {
+                console.log('Disconnecting user from Stream Chat');
                 client.disconnectUser();
             }
         };
-    }, [user, grievanceId]);
+    }, [user, grievanceId, petitionerId, officialId]);
 
     if (error) {
-        return <div className="text-red-500">Error: {error}</div>;
+        return (
+            <div className="text-red-500 p-4">
+                <h4>Chat Error:</h4>
+                <p>{error}</p>
+                <button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-[600px]">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="mt-4">Initializing chat...</p>
+                </div>
+            </div>
+        );
     }
 
     if (!client || !channel) {
-        return <div>Loading chat...</div>;
+        return (
+            <div className="text-red-500 p-4">
+                <p>Failed to initialize chat. Please try again.</p>
+            </div>
+        );
     }
 
     return (

@@ -48,10 +48,13 @@ export const createChannel = async (req, res) => {
         // Create a new channel
         const channel = serverClient.channel('messaging', channelId, {
             members: [petitionerId, officialId],
-            grievance_id: grievanceId
+            grievance_id: grievanceId,
+            name: `Grievance Chat ${grievanceId}`
         });
 
+        // Create the channel and add members
         await channel.create();
+        await channel.addMembers([petitionerId, officialId]);
 
         res.json({
             channelId,

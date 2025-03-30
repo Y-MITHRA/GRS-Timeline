@@ -330,7 +330,11 @@ const PetitionerDashboard = () => {
                                     ></button>
                                 </div>
                                 <div className="modal-body" style={{ height: '500px', padding: 0 }}>
-                                    <ChatComponent grievanceId={selectedGrievance.grievanceId} />
+                                    <ChatComponent 
+                                        grievanceId={selectedGrievance._id}
+                                        petitionerId={selectedGrievance.petitioner?._id || selectedGrievance.petitioner}
+                                        officialId={selectedGrievance.assignedOfficials?.[0]?._id || selectedGrievance.assignedOfficials?.[0]}
+                                    />
                                 </div>
                             </div>
                         </div>
