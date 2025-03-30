@@ -7,28 +7,28 @@ const serverClient = StreamChat.getInstance(STREAM_API_KEY, STREAM_API_SECRET);
 
 export const generateToken = async (req, res) => {
     try {
-        console.log('=== Token Generation Request ===');
-        console.log('User from auth middleware:', req.user);
-        console.log('Request headers:', req.headers);
+        console.log('\n=== Token Generation Request ===');
         console.log('Request body:', req.body);
+        console.log('Request headers:', req.headers);
         console.log('Request method:', req.method);
         console.log('Request path:', req.path);
 
+        // Use the authenticated user's ID from the request
         const userId = req.user.id;
-        console.log('User ID:', userId);
+        console.log('Generating token for authenticated userId:', userId);
 
         if (!userId) {
-            console.error('No user ID found in request');
-            return res.status(400).json({ message: 'User ID is required' });
+            console.error('No authenticated user found');
+            return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        console.log('Creating token for user:', userId);
+        console.log('Creating Stream Chat token...');
         const token = serverClient.createToken(userId);
-        console.log('Token generated successfully');
+        console.log('Token generated successfully for user:', userId);
 
         res.json({ token });
     } catch (error) {
-        console.error('Error generating Stream Chat token:', error);
+        console.error('\nError generating Stream Chat token:', error);
         console.error('Error details:', {
             name: error.name,
             message: error.message,

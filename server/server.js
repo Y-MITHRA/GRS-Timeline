@@ -11,6 +11,7 @@ import authRoutes from './routes/authRoutes.js';
 import petitionerRoutes from './routes/petitioner.js';
 import adminRoutes from './routes/admin.js';
 import grievanceRoutes from './routes/grievanceRoutes.js';
+import chatRoutes from './routes/chatRoutes.js';
 import fs from 'fs';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -53,6 +54,7 @@ app.use('/api', authRoutes);
 app.use('/api/petitioner', petitionerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/grievances', grievanceRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {

@@ -1,9 +1,7 @@
-
-
-
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import Admin from '../models/Admin.js';
+import { generateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -48,7 +46,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// ✅ Admin Login (Without JWT)
+// ✅ Admin Login with JWT
 router.post('/login', async (req, res) => {
     try {
         const { adminId, email, password } = req.body;
@@ -73,7 +71,31 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid password' });
         }
 
-        res.status(200).json({ message: 'Login successful', adminId: admin.adminId, email: admin.email });
+        // Add role for token generation
+        const adminWithRole = {
+            ...admin.toObject(),
+            role: 'admin'
+        };
+
+        // Generate JWT token
+        const token = generateToken(adminWithRole);
+
+        // Prepare user data for response
+        const userData = {
+            id: admin._id,
+            adminId: admin.adminId,
+            email: admin.email,
+            firstName: admin.firstName,
+            lastName: admin.lastName,
+            role: 'admin',
+            position: admin.position
+        };
+
+        res.status(200).json({
+            message: 'Login successful',
+            token,
+            user: userData
+        });
     } catch (error) {
         console.error("Login Error:", error);
         res.status(500).json({ message: 'Server error' });

@@ -1,16 +1,25 @@
 import express from 'express';
-import { generateToken, createChannel, deleteChannel } from '../controllers/chatController.js';
+import { generateToken } from '../controllers/chatController.js';
 import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get Stream Chat token for the authenticated user
-router.post('/token', auth, generateToken);
+// Test route
+router.get('/test', (req, res) => {
+    console.log('Chat test route hit');
+    res.json({ message: 'Chat routes are working' });
+});
 
-// Create a new chat channel
-router.post('/channel', auth, createChannel);
-
-// Delete a chat channel
-router.delete('/channel/:channelId', auth, deleteChannel);
+// Get Stream Chat token - protected route
+router.post('/token', auth, async (req, res, next) => {
+    try {
+        console.log('Token route hit');
+        console.log('Request body:', req.body);
+        await generateToken(req, res);
+    } catch (error) {
+        console.error('Error in token route:', error);
+        next(error);
+    }
+});
 
 export default router; 

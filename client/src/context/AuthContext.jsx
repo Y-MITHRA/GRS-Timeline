@@ -91,16 +91,26 @@ export const AuthProvider = ({ children }) => {
             try {
                 const decoded = decodeToken(token);
                 if (decoded && decoded.exp * 1000 > Date.now()) {
-                    // Set user from localStorage
-                    setUser(JSON.parse(storedUser));
+                    // Token is valid, set user from localStorage
+                    const parsedUser = JSON.parse(storedUser);
+                    setUser(parsedUser);
+
+                    // Check if token is expiring soon
+                    if (isTokenExpiringSoon(decoded)) {
+                        setTokenExpiryWarning(true);
+                    }
                 } else {
                     // Token expired, clear everything
+                    console.log('Token expired, logging out');
                     logout();
                 }
             } catch (error) {
                 console.error('Error restoring session:', error);
                 logout();
             }
+        } else {
+            // No token or user data found
+            setUser(null);
         }
         setLoading(false);
     }, []);
@@ -110,10 +120,17 @@ export const AuthProvider = ({ children }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const login = async (email, password, department = null, employeeId = null) => {
+    const login = async (email, password, department = null, employeeId = null, adminId = null) => {
         try {
-            // Determine the endpoint based on whether department is provided
-            const endpoint = department ? '/api/login/official' : '/api/login/petitioner';
+            // Determine the endpoint based on the login type
+            let endpoint;
+            if (adminId) {
+                endpoint = '/api/admin/login';
+            } else if (department) {
+                endpoint = '/api/login/official';
+            } else {
+                endpoint = '/api/login/petitioner';
+            }
 
             // Extract email if it's an object
             const emailValue = typeof email === 'object' ? email.email : email;
@@ -127,7 +144,8 @@ export const AuthProvider = ({ children }) => {
                     email: emailValue,
                     password,
                     ...(department && { department }),
-                    ...(employeeId && { employeeId })
+                    ...(employeeId && { employeeId }),
+                    ...(adminId && { adminId })
                 })
             });
 
@@ -140,6 +158,9 @@ export const AuthProvider = ({ children }) => {
             // Store token in localStorage
             localStorage.setItem('token', data.token);
 
+            // Store user data in localStorage
+            localStorage.setItem('user', JSON.stringify(data.user));
+
             // Set user in state
             setUser(data.user);
             console.log('Raw decoded token:', data.user);
@@ -149,6 +170,8 @@ export const AuthProvider = ({ children }) => {
                 navigate('/petitioner/dashboard');
             } else if (data.user.role === 'official') {
                 navigate(getRedirectPath('official', data.user.department));
+            } else if (data.user.role === 'admin') {
+                navigate('/admin/dashboard');
             }
 
             return data;
