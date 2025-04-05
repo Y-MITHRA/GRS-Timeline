@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import path from 'path';
+import mongoose from 'mongoose';
 
 // Get the directory name of the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -14,13 +15,18 @@ const __dirname = dirname(__filename);
 // Configure dotenv to look for .env file in the server root directory
 dotenv.config({ path: path.join(dirname(__dirname), '.env') });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+// Use the same secret as the client
+const JWT_SECRET = 'your-secret-key';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '24h';
 
 export const generateToken = (user) => {
+    if (!user || !user._id) {
+        throw new Error('Invalid user object');
+    }
+
     const payload = {
         id: user._id.toString(),
-        role: user.role.toLowerCase(),
+        role: (user.role || 'petitioner').toLowerCase(),
         exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
     };
 
@@ -43,114 +49,88 @@ export const verifyToken = (token) => {
     }
 };
 
-const auth = async (req, res, next) => {
+export const auth = async (req, res, next) => {
     try {
-        // Log headers for debugging
+        // Log request headers for debugging
         console.log('Auth Headers:', req.headers);
 
-        const token = req.header('Authorization')?.replace('Bearer ', '');
-
-        if (!token) {
-            console.log('No token provided');
+        const authHeader = req.header('Authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            console.log('❌ No Bearer token found');
             return res.status(401).json({
-                message: 'No authentication token, access denied',
+                message: 'No authentication token provided',
                 code: 'TOKEN_MISSING'
             });
         }
 
-        let decoded;
-        try {
-            decoded = verifyToken(token);
-            console.log('Decoded token:', decoded);
-        } catch (error) {
-            console.log('Token verification failed:', error.message);
-            return res.status(401).json({
-                message: error.message,
-                code: error.message === 'Token has expired' ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID'
-            });
-        }
+        const token = authHeader.replace('Bearer ', '');
 
-        if (!decoded.id || !decoded.role) {
-            console.log('Token missing required fields:', decoded);
+        // First decode without verification to check expiration
+        const decoded = jwt.decode(token);
+        if (!decoded) {
+            console.error('Token decode failed');
             return res.status(401).json({
                 message: 'Invalid token format',
-                code: 'TOKEN_INVALID_FORMAT'
+                code: 'INVALID_TOKEN'
             });
         }
 
-        let user;
-        try {
-            switch (decoded.role) {
-                case 'petitioner':
-                    user = await Petitioner.findById(decoded.id);
-                    break;
-                case 'official':
-                    user = await Official.findById(decoded.id);
-                    break;
-                case 'admin':
-                    user = await Admin.findById(decoded.id);
-                    break;
-                default:
-                    throw new Error('Invalid user role');
-            }
-
-            if (!user) {
-                console.log('No user found for token');
-                return res.status(401).json({
-                    message: 'User not found',
-                    code: 'USER_NOT_FOUND'
-                });
-            }
-
-            // Add user info to request
-            req.user = {
-                id: user._id.toString(),
-                name: user.firstName && user.lastName
-                    ? `${user.firstName} ${user.lastName}`.trim()
-                    : (user.name || `${user.email.split('@')[0]}`),  // Fallback to email prefix if no name
-                email: user.email,
-                role: decoded.role,
-                ...(decoded.department && { department: decoded.department }),
-                // Add these fields for debugging
-                _raw: {
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    email: user.email,
-                    id: user._id
-                }
-            };
-
-            // Log complete user object for debugging
-            console.log('Auth middleware complete user object:', {
-                provided: req.user,
-                original: user.toObject()
-            });
-
-            // Check token expiration and send warning if close to expiry
-            const expiryTime = new Date(decoded.exp * 1000);
-            const now = new Date();
-            const timeUntilExpiry = expiryTime - now;
-            const warningThreshold = 5 * 60 * 1000; // 5 minutes
-
-            if (timeUntilExpiry < warningThreshold) {
-                res.set('X-Token-Expiring-Soon', 'true');
-                res.set('X-Token-Expires-In', Math.floor(timeUntilExpiry / 1000));
-            }
-
-            console.log('Auth successful for user:', req.user.email);
-            next();
-        } catch (error) {
-            console.error('Database lookup failed:', error.message);
+        // Check if token is expired
+        if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) {
+            console.error('Token expired');
             return res.status(401).json({
-                message: 'Error verifying user identity',
-                code: 'USER_LOOKUP_FAILED'
+                message: 'Token has expired',
+                code: 'TOKEN_EXPIRED'
             });
         }
+
+        // Now verify the token
+        const verified = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+
+        // Look up user based on role and ID
+        let user;
+        switch (verified.role) {
+            case 'petitioner':
+                user = await Petitioner.findById(verified.id);
+                break;
+            case 'official':
+                user = await Official.findById(verified.id);
+                break;
+            case 'admin':
+                user = await Admin.findById(verified.id);
+                break;
+            default:
+                return res.status(401).json({
+                    message: 'Invalid user role',
+                    code: 'INVALID_ROLE'
+                });
+        }
+
+        if (!user) {
+            console.error('User not found:', verified.id);
+            return res.status(401).json({
+                message: 'User not found',
+                code: 'USER_NOT_FOUND'
+            });
+        }
+
+        // Add user info to request
+        req.user = {
+            id: user._id.toString(),
+            role: verified.role,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            ...(user.department && { department: user.department })
+        };
+
+        console.log('✅ Authentication successful for user:', user.email);
+        next();
     } catch (error) {
-        console.error('Auth Error:', error.message);
+        console.error('Token verification failed:', error);
         res.status(401).json({
-            message: 'Authentication failed',
-            code: 'AUTH_FAILED'
+            message: 'Invalid token',
+            code: 'INVALID_TOKEN'
         });
     }
 };

@@ -156,14 +156,15 @@ export const AuthProvider = ({ children }) => {
             }
 
             // Store token in localStorage
-            localStorage.setItem('token', data.token);
-
-            // Store user data in localStorage
-            localStorage.setItem('user', JSON.stringify(data.user));
-
-            // Set user in state
-            setUser(data.user);
-            console.log('Raw decoded token:', data.user);
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                // Store user data in localStorage
+                localStorage.setItem('user', JSON.stringify(data.user));
+                // Set user in state
+                setUser(data.user);
+            } else {
+                throw new Error('No token received from server');
+            }
 
             // Navigate based on role
             if (data.user.role === 'petitioner') {
@@ -248,7 +249,12 @@ export const AuthProvider = ({ children }) => {
 
         // Check token expiration before making request
         const decoded = decodeToken(token);
-        if (decoded && decoded.exp * 1000 <= Date.now()) {
+        if (!decoded) {
+            logout();
+            throw new Error('Invalid token format');
+        }
+
+        if (decoded.exp * 1000 <= Date.now()) {
             logout();
             throw new Error('Session expired. Please log in again.');
         }
@@ -259,22 +265,61 @@ export const AuthProvider = ({ children }) => {
 
         const defaultHeaders = {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
         };
 
         // Don't override Content-Type if FormData is being sent
-        if (!(options.body instanceof FormData)) {
-            defaultHeaders['Content-Type'] = 'application/json';
+        if (options.body instanceof FormData) {
+            delete defaultHeaders['Content-Type'];
         }
 
-        const response = await fetch(fullUrl, {
-            ...options,
-            headers: {
-                ...defaultHeaders,
-                ...options.headers
-            }
-        });
+        try {
+            const response = await fetch(fullUrl, {
+                ...options,
+                headers: {
+                    ...defaultHeaders,
+                    ...options.headers
+                }
+            });
 
-        return handleApiResponse(response);
+            // If unauthorized, try to refresh the token
+            if (response.status === 401) {
+                const refreshResponse = await fetch(`${baseUrl}/api/auth/refresh`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (refreshResponse.ok) {
+                    const { token: newToken } = await refreshResponse.json();
+                    localStorage.setItem('token', newToken);
+
+                    // Retry the original request with new token
+                    return fetch(fullUrl, {
+                        ...options,
+                        headers: {
+                            ...defaultHeaders,
+                            'Authorization': `Bearer ${newToken}`,
+                            ...options.headers
+                        }
+                    });
+                } else {
+                    // If refresh fails, logout
+                    logout();
+                    throw new Error('Session expired. Please log in again.');
+                }
+            }
+
+            return handleApiResponse(response);
+        } catch (error) {
+            console.error('Fetch error:', error);
+            if (error.message.includes('Session expired')) {
+                logout();
+            }
+            throw error;
+        }
     };
 
     if (loading) {

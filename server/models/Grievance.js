@@ -58,6 +58,12 @@ const grievanceSchema = new mongoose.Schema({
             return `GRV${Date.now().toString().slice(-6)}`;
         }
     },
+    portal_type: {
+        type: String,
+        required: true,
+        enum: ['GRS', 'RTO', 'Water'],
+        default: 'GRS'
+    },
     title: {
         type: String,
         required: true,

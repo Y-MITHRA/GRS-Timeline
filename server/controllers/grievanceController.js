@@ -690,18 +690,17 @@ export const startProgress = async (req, res) => {
     }
 };
 
-// Find nearest office for a grievance
-export const findNearestOffice = async (req, res) => {
+// Find nearest office for a grievance by coordinates
+export const findNearestOfficeByCoordinates = async (req, res) => {
     try {
-        const { id } = req.params;
-        const grievance = await Grievance.findById(id);
+        const { department, coordinates } = req.body;
 
-        if (!grievance) {
-            return res.status(404).json({ error: 'Grievance not found' });
+        if (!coordinates || !coordinates.latitude || !coordinates.longitude) {
+            return res.status(400).json({ error: 'Invalid coordinates provided' });
         }
 
-        if (!grievance.coordinates) {
-            return res.status(400).json({ error: 'Grievance does not have location coordinates' });
+        if (!department) {
+            return res.status(400).json({ error: 'Department is required' });
         }
 
         // Define office locations (you can move these to a separate configuration file)
@@ -720,7 +719,7 @@ export const findNearestOffice = async (req, res) => {
             ]
         };
 
-        const departmentOffices = officeLocations[grievance.department];
+        const departmentOffices = officeLocations[department];
         if (!departmentOffices) {
             return res.status(400).json({ error: 'Invalid department' });
         }
@@ -728,8 +727,8 @@ export const findNearestOffice = async (req, res) => {
         // Calculate distances to all offices
         const distances = departmentOffices.map(office => {
             const distance = calculateDistance(
-                grievance.coordinates.latitude,
-                grievance.coordinates.longitude,
+                coordinates.latitude,
+                coordinates.longitude,
                 office.coordinates[0],
                 office.coordinates[1]
             );
@@ -739,8 +738,15 @@ export const findNearestOffice = async (req, res) => {
         // Sort by distance and get the nearest office
         const nearestOffice = distances.sort((a, b) => a.distance - b.distance)[0];
 
+        // Find officials assigned to the nearest office
+        const nearestOfficeOfficials = await Official.find({
+            department: department,
+            officeLocation: nearestOffice.name
+        }).select('_id name email phone');
+
         res.json({
             nearestOffice,
+            nearestOfficeOfficials,
             allOffices: distances
         });
     } catch (error) {

@@ -19,7 +19,7 @@ import {
     uploadResolutionDocument,
     submitFeedback,
     getOfficialFeedback,
-    findNearestOffice,
+    findNearestOfficeByCoordinates,
     uploadDocumentAndCreateGrievance
 } from '../controllers/grievanceController.js';
 import { processDocument, upload } from '../controllers/documentController.js';
@@ -96,8 +96,8 @@ router.get('/official/:id/feedback', auth, getOfficialFeedback);
 router.get('/:id/chat', auth, getChatMessages);
 router.post('/:id/chat', auth, sendChatMessage);
 
-// Find nearest office for a grievance
-router.get('/:id/nearest-office', auth, findNearestOffice);
+// Find nearest office by coordinates
+router.post('/find-nearest-office', findNearestOfficeByCoordinates);
 
 // Upload document and create grievance
 router.post('/upload-document', auth, upload.single('document'), uploadDocumentAndCreateGrievance);
