@@ -49,6 +49,49 @@ const statusHistorySchema = new mongoose.Schema({
     }
 });
 
+const resourceManagementSchema = new mongoose.Schema({
+    startDate: {
+        type: Date,
+        required: true
+    },
+    endDate: {
+        type: Date,
+        required: true
+    },
+    requirementsNeeded: {
+        type: String,
+        required: true
+    },
+    fundsRequired: {
+        type: Number,
+        required: true
+    },
+    resourcesRequired: {
+        type: String,
+        required: true
+    },
+    manpowerNeeded: {
+        type: Number,
+        required: true
+    }
+});
+
+const timelineStageSchema = new mongoose.Schema({
+    stageName: {
+        type: String,
+        required: true,
+        enum: ['Grievance Filed', 'Under Review', 'Investigation', 'Resolution']
+    },
+    date: {
+        type: Date,
+        required: true
+    },
+    description: {
+        type: String,
+        required: true
+    }
+});
+
 const grievanceSchema = new mongoose.Schema({
     petitionId: {
         type: String,
@@ -147,7 +190,9 @@ const grievanceSchema = new mongoose.Schema({
     updatedAt: {
         type: Date,
         default: Date.now
-    }
+    },
+    resourceManagement: resourceManagementSchema,
+    timelineStages: [timelineStageSchema]
 }, {
     timestamps: true
 });

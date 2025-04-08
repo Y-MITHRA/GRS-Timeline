@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/WaterBoard.css";
 import NavBar_Departments from "../components/NavBar_Departments";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from 'react-router-dom';
-import { FaSearch, FaUser, FaSignOutAlt, FaCheck, FaPlay, FaCheckCircle } from 'react-icons/fa';
+import { FaSearch, FaUser, FaSignOutAlt, FaCheck, FaPlay, FaCheckCircle, FaClock, FaClipboardList } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import ChatComponent from '../components/ChatComponent';
 import "../styles/Chat.css";
@@ -33,6 +33,22 @@ const WaterDashboard = () => {
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [showChat, setShowChat] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showResourceModal, setShowResourceModal] = useState(false);
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
+  const [resourceForm, setResourceForm] = useState({
+    startDate: '',
+    endDate: '',
+    requirementsNeeded: '',
+    fundsRequired: '',
+    resourcesRequired: '',
+    manpowerNeeded: ''
+  });
+  const [timelineForm, setTimelineForm] = useState({
+    stageName: '',
+    date: '',
+    description: ''
+  });
 
   useEffect(() => {
     if (!user) {
@@ -46,7 +62,7 @@ const WaterDashboard = () => {
 
     // Fetch initial data
     fetchGrievances();
-  }, [user, navigate, activeTab]);
+  }, [user, activeTab]);
 
   const fetchGrievances = async () => {
     try {
@@ -119,6 +135,60 @@ const WaterDashboard = () => {
     } catch (error) {
       console.error('Error accepting grievance:', error);
       toast.error('Failed to accept grievance');
+    }
+  };
+
+  const handleResourceSubmit = async (grievanceId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/resource-management`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(resourceForm)
+      });
+
+      if (!response.ok) throw new Error('Failed to submit resource management');
+
+      setShowResourceModal(false);
+      toast.success('Resource management details submitted successfully');
+      
+      // Automatically start progress after resource management submission
+      await handleStartProgress(grievanceId);
+      
+      fetchGrievances();
+    } catch (error) {
+      console.error('Error submitting resource management:', error);
+      toast.error('Failed to submit resource management details');
+    }
+  };
+
+  const handleTimelineSubmit = async (grievanceId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/timeline-stage`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(timelineForm)
+      });
+
+      if (!response.ok) throw new Error('Failed to update timeline');
+
+      setShowTimelineModal(false);
+      toast.success('Timeline updated successfully');
+      fetchGrievances();
+    } catch (error) {
+      console.error('Error updating timeline:', error);
+      toast.error('Failed to update timeline');
     }
   };
 
@@ -305,102 +375,77 @@ const WaterDashboard = () => {
               </div>
             </div>
 
-            <div className="tabs">
-              <div
-                className={`tab ${activeTab === "pending" ? "active" : ""}`}
-                onClick={() => setActiveTab("pending")}
-              >
-                Pending Acceptance
+            <div className="tab-container">
+              <div className="tabs">
+                <button
+                  className={`tab ${activeTab === "pending" ? "active" : ""}`}
+                  onClick={() => setActiveTab("pending")}
+                >
+                  Pending
+                </button>
+                <button
+                  className={`tab ${activeTab === "assigned" ? "active" : ""}`}
+                  onClick={() => setActiveTab("assigned")}
+                >
+                  Assigned
+                </button>
+                <button
+                  className={`tab ${activeTab === "inProgress" ? "active" : ""}`}
+                  onClick={() => setActiveTab("inProgress")}
+                >
+                  In Progress
+                </button>
+                <button
+                  className={`tab ${activeTab === "resolved" ? "active" : ""}`}
+                  onClick={() => setActiveTab("resolved")}
+                >
+                  Resolved
+                </button>
               </div>
-              <div
-                className={`tab ${activeTab === "assigned" ? "active" : ""}`}
-                onClick={() => setActiveTab("assigned")}
-              >
-                Assigned Cases
-              </div>
-              <div
-                className={`tab ${activeTab === "inProgress" ? "active" : ""}`}
-                onClick={() => setActiveTab("inProgress")}
-              >
-                In Progress
-              </div>
-              <div
-                className={`tab ${activeTab === "resolved" ? "active" : ""}`}
-                onClick={() => setActiveTab("resolved")}
-              >
-                Resolved
-              </div>
-            </div>
 
-            <div className="search-filter">
-              <div className="search-box">
-                <span className="search-icon">🔍</span>
-                <input
-                  type="text"
-                  placeholder="Search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+              <div className="search-container">
+                <div className="search-box">
+                  <FaSearch className="search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="search-input"
+                  />
+                </div>
               </div>
-              <button className="filter-btn">
-                <span>Filter</span>
-                <span className="filter-icon">🔽</span>
-              </button>
-            </div>
 
-            {loading ? (
-              <div className="text-center p-4">Loading...</div>
-            ) : error ? (
-              <div className="alert alert-danger">{error}</div>
-            ) : (
-              <div className="grievance-list">
-                {filteredGrievances.map((item) => (
-                  <div
-                    className={`grievance-item ${selectedGrievance?._id === item._id ? 'selected' : ''}`}
-                    key={item._id}
-                    onClick={() => setSelectedGrievance(item)}
-                  >
-                    <div className="grievance-header">
-                      <div className="grievance-id">{item.grievanceId}</div>
-                      <div className="grievance-title">{item.title}</div>
-                      <div className="grievance-assignee">
-                        {item.assignedTo && (
-                          <>
-                            <img src="/api/placeholder/24/24" alt="Assignee" className="assignee-avatar" />
-                            <span>{item.assignedTo.name}</span>
-                          </>
-                        )}
+              <div className="grievances-list">
+                {loading ? (
+                  <div className="loading">Loading...</div>
+                ) : error ? (
+                  <div className="error">{error}</div>
+                ) : grievances[activeTab].length === 0 ? (
+                  <div className="no-grievances">No grievances found</div>
+                ) : (
+                  grievances[activeTab].map((grievance) => (
+                    <div key={grievance._id} className="grievance-card">
+                      <div className="grievance-header">
+                        <div className="grievance-id">{grievance.grievanceId}</div>
+                        <div className="grievance-date">
+                          {new Date(grievance.createdAt).toLocaleDateString()}
+                        </div>
                       </div>
-                    </div>
-                    <div className="grievance-details">
-                      <div className="grievance-date">
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="grievance-status">
-                        <span className={`status ${item.status.toLowerCase()}`}>
-                          {item.status}
-                        </span>
-                        <span className={`priority ${item.priority?.toLowerCase() || 'medium'}`}>
-                          {item.priority || 'Medium'}
-                        </span>
-                      </div>
+                      <div className="grievance-title">{grievance.title}</div>
                       <div className="grievance-actions">
-                        {activeTab === 'pending' && (
+                        {activeTab === "pending" && (
                           <>
                             <button
-                              className="btn btn-success btn-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAccept(item);
-                              }}
+                              className="btn btn-success"
+                              onClick={() => handleAccept(grievance)}
                             >
                               Accept
                             </button>
                             <button
-                              className="btn btn-danger btn-sm ms-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedGrievance(item);
+                              className="btn btn-danger"
+                              onClick={() => {
+                                setSelectedGrievance(grievance);
                                 setShowDeclineModal(true);
                               }}
                             >
@@ -408,85 +453,100 @@ const WaterDashboard = () => {
                             </button>
                           </>
                         )}
-                        {activeTab === 'assigned' && (
+                        {activeTab === "assigned" && (
                           <button
-                            className="btn btn-primary btn-sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleStartProgress(item._id);
+                            className="btn btn-primary"
+                            onClick={() => {
+                              setSelectedGrievance(grievance);
+                              setShowResourceModal(true);
                             }}
                           >
-                            Start
+                            Resource Management
                           </button>
                         )}
-                        {activeTab === 'inProgress' && (
+                        {activeTab === "inProgress" && (
                           <>
                             <button
-                              className="btn btn-info btn-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewChat(item);
+                              className="btn btn-info"
+                              onClick={() => {
+                                setSelectedGrievance(grievance);
+                                setShowTimelineModal(true);
                               }}
                             >
-                              Chat
+                              Update Timeline
                             </button>
                             <button
-                              className="btn btn-success btn-sm ms-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleResolve(item._id);
-                              }}
+                              className="btn btn-success"
+                              onClick={() => handleResolve(grievance._id)}
                             >
-                              Resolve
+                              Mark as Resolved
                             </button>
                           </>
                         )}
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => handleViewChat(grievance)}
+                        >
+                          Chat
+                        </button>
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => {
+                            setSelectedGrievance(grievance);
+                            setShowDetails(true);
+                          }}
+                        >
+                          View Details
+                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {filteredGrievances.length === 0 && (
-                  <div className="text-center p-4">No grievances found</div>
+                  ))
                 )}
               </div>
-            )}
+            </div>
           </main>
 
-          {selectedGrievance && (
-            <aside className="detail-panel">
-              <div className="detail-header">
-                <h3>Grievance Details</h3>
-                <button
-                  className="close-btn"
-                  onClick={() => setSelectedGrievance(null)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="detail-content">
-                <div className="grievance-info">
-                  <p><strong>ID:</strong> {selectedGrievance.grievanceId}</p>
-                  <p><strong>Title:</strong> {selectedGrievance.title}</p>
-                  <p><strong>Description:</strong> {selectedGrievance.description}</p>
-                  <p><strong>Status:</strong> {selectedGrievance.status}</p>
-                  <p>
-                    <strong>Priority:</strong>
-                    <span className={`priority ${selectedGrievance.priority?.toLowerCase() || 'medium'}`}>
-                      {selectedGrievance.priority || 'Medium'}
+          {showDetails && selectedGrievance && (
+            <div className="modal">
+              <div className="modal-content details-modal">
+                <div className="details-header">
+                  <h2>Grievance Details</h2>
+                  <button className="close-btn" onClick={() => setShowDetails(false)}>×</button>
+                </div>
+                <div className="details-body">
+                  <div className="detail-row">
+                    <span className="detail-label">ID:</span>
+                    <span className="detail-value">{selectedGrievance._id}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Title:</span>
+                    <span className="detail-value">{selectedGrievance.title}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Description:</span>
+                    <span className="detail-value">{selectedGrievance.description}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Status:</span>
+                    <span className="detail-value">{selectedGrievance.status}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Priority:</span>
+                    <span className="detail-value">{selectedGrievance.priority}</span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Created At:</span>
+                    <span className="detail-value">
+                      {new Date(selectedGrievance.createdAt).toLocaleString()}
                     </span>
-                    {selectedGrievance.priorityExplanation && (
-                      <span className="priority-explanation">
-                        - {selectedGrievance.priorityExplanation}
-                      </span>
-                    )}
-                  </p>
-                  <p><strong>Submitted by:</strong> {selectedGrievance.petitioner?.name}</p>
-                  {selectedGrievance.assignedTo && (
-                    <p><strong>Assigned to:</strong> {selectedGrievance.assignedTo.name}</p>
-                  )}
+                  </div>
+                  <div className="detail-row">
+                    <span className="detail-label">Location:</span>
+                    <span className="detail-value">{selectedGrievance.location}</span>
+                  </div>
                 </div>
               </div>
-            </aside>
+            </div>
           )}
         </div>
       </div>
@@ -544,6 +604,135 @@ const WaterDashboard = () => {
               <p className="text-sm">{selectedGrievance.resolution.text}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {showResourceModal && selectedGrievance && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Resource Management</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleResourceSubmit(selectedGrievance._id);
+            }}>
+              <div className="form-group">
+                <label>Start Date</label>
+                <input
+                  type="date"
+                  value={resourceForm.startDate}
+                  onChange={(e) => setResourceForm(prev => ({ ...prev, startDate: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>End Date</label>
+                <input
+                  type="date"
+                  value={resourceForm.endDate}
+                  onChange={(e) => setResourceForm(prev => ({ ...prev, endDate: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Requirements Needed</label>
+                <textarea
+                  value={resourceForm.requirementsNeeded}
+                  onChange={(e) => setResourceForm(prev => ({ ...prev, requirementsNeeded: e.target.value }))}
+                  required
+                  placeholder="List all requirements"
+                />
+              </div>
+              <div className="form-group">
+                <label>Funds Required (₹)</label>
+                <input
+                  type="number"
+                  value={resourceForm.fundsRequired}
+                  onChange={(e) => setResourceForm(prev => ({ ...prev, fundsRequired: e.target.value }))}
+                  required
+                  min="0"
+                />
+              </div>
+              <div className="form-group">
+                <label>Resources Required</label>
+                <textarea
+                  value={resourceForm.resourcesRequired}
+                  onChange={(e) => setResourceForm(prev => ({ ...prev, resourcesRequired: e.target.value }))}
+                  required
+                  placeholder="List all resources"
+                />
+              </div>
+              <div className="form-group">
+                <label>Manpower Needed</label>
+                <input
+                  type="number"
+                  value={resourceForm.manpowerNeeded}
+                  onChange={(e) => setResourceForm(prev => ({ ...prev, manpowerNeeded: e.target.value }))}
+                  required
+                  min="0"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowResourceModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Submit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showTimelineModal && selectedGrievance && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Update Timeline</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleTimelineSubmit(selectedGrievance._id);
+            }}>
+              <div className="form-group">
+                <label>Stage</label>
+                <select
+                  value={timelineForm.stageName}
+                  onChange={(e) => setTimelineForm(prev => ({ ...prev, stageName: e.target.value }))}
+                  required
+                >
+                  <option value="">Select Stage</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="Investigation">Investigation</option>
+                  <option value="Resolution">Resolution</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={timelineForm.date}
+                  onChange={(e) => setTimelineForm(prev => ({ ...prev, date: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={timelineForm.description}
+                  onChange={(e) => setTimelineForm(prev => ({ ...prev, description: e.target.value }))}
+                  required
+                  placeholder="Example: Gathered evidence from site visit"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowTimelineModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save Stage
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

@@ -2,6 +2,140 @@ import Grievance from '../models/Grievance.js';
 import { mapCategoryToDepartment } from '../utils/departmentMapper.js';
 import Official from '../models/Official.js';
 
+// Update resource management
+export const updateResourceManagement = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { startDate, endDate, requirementsNeeded, fundsRequired, resourcesRequired, manpowerNeeded } = req.body;
+
+        // Validate required fields
+        if (!startDate || !endDate || !requirementsNeeded || !fundsRequired || !resourcesRequired || !manpowerNeeded) {
+            return res.status(400).json({ error: 'All resource management fields are required' });
+        }
+
+        const grievance = await Grievance.findById(id);
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        // Update resource management details
+        grievance.resourceManagement = {
+            startDate,
+            endDate,
+            requirementsNeeded,
+            fundsRequired,
+            resourcesRequired,
+            manpowerNeeded
+        };
+
+        // Update status to in-progress if not already
+        if (grievance.status !== 'in-progress') {
+            grievance.status = 'in-progress';
+            grievance.statusHistory.push({
+                status: 'in-progress',
+                updatedBy: req.user.id,
+                updatedByType: 'official',
+                comment: 'Resource management details added and work started'
+            });
+        }
+
+        await grievance.save();
+
+        res.status(200).json({
+            message: 'Resource management details updated successfully',
+            grievance
+        });
+    } catch (error) {
+        console.error('Error updating resource management:', error);
+        res.status(500).json({
+            error: 'Failed to update resource management',
+            details: error.message
+        });
+    }
+};
+
+// Get resource management details
+export const getResourceManagement = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const grievance = await Grievance.findById(id);
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        res.status(200).json({
+            resourceManagement: grievance.resourceManagement
+        });
+    } catch (error) {
+        console.error('Error getting resource management:', error);
+        res.status(500).json({
+            error: 'Failed to get resource management details',
+            details: error.message
+        });
+    }
+};
+
+// Update timeline stage
+export const updateTimelineStage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { stageName, date, description } = req.body;
+
+        // Validate required fields
+        if (!stageName || !date || !description) {
+            return res.status(400).json({ error: 'All timeline stage fields are required' });
+        }
+
+        const grievance = await Grievance.findById(id);
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        // Add new timeline stage
+        grievance.timelineStages.push({
+            stageName,
+            date,
+            description
+        });
+
+        await grievance.save();
+
+        res.status(200).json({
+            message: 'Timeline stage added successfully',
+            timelineStages: grievance.timelineStages
+        });
+    } catch (error) {
+        console.error('Error updating timeline stage:', error);
+        res.status(500).json({
+            error: 'Failed to update timeline stage',
+            details: error.message
+        });
+    }
+};
+
+// Get timeline stages
+export const getTimelineStages = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const grievance = await Grievance.findById(id);
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        res.status(200).json({
+            timelineStages: grievance.timelineStages
+        });
+    } catch (error) {
+        console.error('Error getting timeline stages:', error);
+        res.status(500).json({
+            error: 'Failed to get timeline stages',
+            details: error.message
+        });
+    }
+};
+
 // Helper function to calculate distance between two points using the Haversine formula
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; // Earth's radius in kilometers

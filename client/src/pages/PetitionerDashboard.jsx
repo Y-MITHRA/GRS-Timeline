@@ -3,9 +3,10 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Footer from "../shared/Footer";
 import NavBar from "../components/NavBar";
-import { Plus, Search, Filter, RefreshCw, Eye, MessageCircle, AlertCircle } from "lucide-react";
+import { Plus, Search, Filter, RefreshCw, Eye, MessageCircle, AlertCircle, Clock } from "lucide-react";
 import moment from 'moment';
 import ChatComponent from '../components/ChatComponent';
+import TimelineView from '../components/TimelineView';
 import "../styles/Chat.css";
 
 const PetitionerDashboard = () => {
@@ -29,6 +30,7 @@ const PetitionerDashboard = () => {
     const [filteredGrievances, setFilteredGrievances] = useState([]);
     const [selectedGrievance, setSelectedGrievance] = useState(null);
     const [showChat, setShowChat] = useState(false);
+    const [showTimeline, setShowTimeline] = useState(false);
 
     useEffect(() => {
         fetchGrievances();
@@ -294,15 +296,27 @@ const PetitionerDashboard = () => {
                                         <td>{moment(grievance.createdAt).format('MMM D, YYYY')}</td>
                                         <td>{moment(grievance.updatedAt).format('MMM D, YYYY')}</td>
                                         <td>
-                                            {grievance.assignedTo && (
+                                            <div className="d-flex gap-2">
+                                                {grievance.assignedTo && (
+                                                    <button
+                                                        className="btn btn-sm btn-primary"
+                                                        onClick={() => handleViewChat(grievance)}
+                                                    >
+                                                        <MessageCircle size={16} className="me-1" />
+                                                        Chat
+                                                    </button>
+                                                )}
                                                 <button
-                                                    className="btn btn-sm btn-primary"
-                                                    onClick={() => handleViewChat(grievance)}
+                                                    className="btn btn-sm btn-info"
+                                                    onClick={() => {
+                                                        setSelectedGrievance(grievance);
+                                                        setShowTimeline(true);
+                                                    }}
                                                 >
-                                                    <MessageCircle size={16} className="me-1" />
-                                                    Chat
+                                                    <Clock size={16} className="me-1" />
+                                                    Timeline
                                                 </button>
-                                            )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -310,6 +324,32 @@ const PetitionerDashboard = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Timeline Modal */}
+                {showTimeline && selectedGrievance && (
+                    <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+                        <div className="modal-dialog modal-lg">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <h5 className="modal-title">
+                                        Timeline - Grievance {selectedGrievance.grievanceId}
+                                    </h5>
+                                    <button
+                                        type="button"
+                                        className="btn-close"
+                                        onClick={() => {
+                                            setShowTimeline(false);
+                                            setSelectedGrievance(null);
+                                        }}
+                                    ></button>
+                                </div>
+                                <div className="modal-body">
+                                    <TimelineView grievanceId={selectedGrievance._id} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Chat Modal */}
                 {showChat && selectedGrievance && (

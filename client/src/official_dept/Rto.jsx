@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { toast } from 'react-hot-toast';
 import ChatComponent from '../components/ChatComponent';
 
-const RTODashboard = () => {
+const RtoDashboard = () => {
   const { user } = useAuth();
   const [employeeId, setEmployeeId] = useState("");
   const [email, setEmail] = useState("");
@@ -31,6 +31,21 @@ const RTODashboard = () => {
   const [chatMessage, setChatMessage] = useState("");
   const [showChat, setShowChat] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showResourceModal, setShowResourceModal] = useState(false);
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
+  const [resourceForm, setResourceForm] = useState({
+    startDate: '',
+    endDate: '',
+    requirementsNeeded: '',
+    fundsRequired: '',
+    resourcesRequired: '',
+    manpowerNeeded: ''
+  });
+  const [timelineForm, setTimelineForm] = useState({
+    stageName: '',
+    date: '',
+    description: ''
+  });
 
   useEffect(() => {
     setEmployeeId(localStorage.getItem("employeeId") || "N/A");
@@ -131,6 +146,60 @@ const RTODashboard = () => {
     } catch (error) {
       console.error('Error declining grievance:', error);
       toast.error(error.message || 'Failed to decline grievance');
+    }
+  };
+
+  const handleResourceSubmit = async (grievanceId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/resource-management`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(resourceForm)
+      });
+
+      if (!response.ok) throw new Error('Failed to submit resource management');
+
+      setShowResourceModal(false);
+      toast.success('Resource management details submitted successfully');
+      
+      // Automatically start progress after resource management submission
+      await handleStartProgress(grievanceId);
+      
+      fetchGrievances();
+    } catch (error) {
+      console.error('Error submitting resource management:', error);
+      toast.error('Failed to submit resource management details');
+    }
+  };
+
+  const handleTimelineSubmit = async (grievanceId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('No authentication token found');
+
+      const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/timeline-stage`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(timelineForm)
+      });
+
+      if (!response.ok) throw new Error('Failed to update timeline');
+
+      setShowTimelineModal(false);
+      toast.success('Timeline updated successfully');
+      fetchGrievances();
+    } catch (error) {
+      console.error('Error updating timeline:', error);
+      toast.error('Failed to update timeline');
     }
   };
 
@@ -423,29 +492,55 @@ const RTODashboard = () => {
                         </>
                       )}
                       {activeTab === "assigned" && (
-                        <button
-                          className="btn btn-primary"
-                          onClick={() => handleStartProgress(item._id)}
-                        >
-                          Start Progress
-                        </button>
+                        <>
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => {
+                              setSelectedGrievance(item);
+                              setShowResourceModal(true);
+                            }}
+                          >
+                            Resource Management
+                          </button>
+                        </>
                       )}
                       {activeTab === "inProgress" && (
                         <>
+                          <button
+                            className="btn btn-info"
+                            onClick={() => {
+                              setSelectedGrievance(item);
+                              setShowTimelineModal(true);
+                            }}
+                          >
+                            Update Timeline
+                          </button>
                           <button
                             className="btn btn-success"
                             onClick={() => handleResolve(item._id)}
                           >
                             Mark as Resolved
                           </button>
-                          <button
-                            className="btn btn-info"
-                            onClick={() => handleViewChat(item)}
-                          >
-                            Chat
-                          </button>
                         </>
                       )}
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                          setSelectedGrievance(item);
+                          setShowChat(true);
+                        }}
+                      >
+                        Chat
+                      </button>
+                      <button
+                        className="btn btn-outline-primary"
+                        onClick={() => {
+                          setSelectedGrievance(item);
+                          setShowDetails(true);
+                        }}
+                      >
+                        View Details
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -485,6 +580,150 @@ const RTODashboard = () => {
                 Decline
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showResourceModal && selectedGrievance && (
+        <div className="modal">
+          <div className="modal-content resource-modal">
+            <div className="modal-header">
+              <h2>Resource Management</h2>
+              <button className="btn-close" onClick={() => setShowResourceModal(false)}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleResourceSubmit(selectedGrievance._id);
+            }}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input
+                    type="date"
+                    value={resourceForm.startDate}
+                    onChange={(e) => setResourceForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input
+                    type="date"
+                    value={resourceForm.endDate}
+                    onChange={(e) => setResourceForm(prev => ({ ...prev, endDate: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Requirements Needed</label>
+                  <textarea
+                    value={resourceForm.requirementsNeeded}
+                    onChange={(e) => setResourceForm(prev => ({ ...prev, requirementsNeeded: e.target.value }))}
+                    required
+                    placeholder="List all requirements for this grievance"
+                  />
+                  <div className="resource-hint">Specify all materials, equipment, and other requirements</div>
+                </div>
+                <div className="form-group">
+                  <label>Funds Required (₹)</label>
+                  <input
+                    type="number"
+                    value={resourceForm.fundsRequired}
+                    onChange={(e) => setResourceForm(prev => ({ ...prev, fundsRequired: e.target.value }))}
+                    required
+                    min="0"
+                    step="100"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Resources Required</label>
+                  <textarea
+                    value={resourceForm.resourcesRequired}
+                    onChange={(e) => setResourceForm(prev => ({ ...prev, resourcesRequired: e.target.value }))}
+                    required
+                    placeholder="List all resources needed"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Manpower Needed</label>
+                  <input
+                    type="number"
+                    value={resourceForm.manpowerNeeded}
+                    onChange={(e) => setResourceForm(prev => ({ ...prev, manpowerNeeded: e.target.value }))}
+                    required
+                    min="1"
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowResourceModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Submit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showTimelineModal && selectedGrievance && (
+        <div className="modal">
+          <div className="modal-content timeline-modal">
+            <div className="modal-header">
+              <h2>Update Timeline</h2>
+              <button className="btn-close" onClick={() => setShowTimelineModal(false)}>×</button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleTimelineSubmit(selectedGrievance._id);
+            }}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Stage</label>
+                  <select
+                    value={timelineForm.stageName}
+                    onChange={(e) => setTimelineForm(prev => ({ ...prev, stageName: e.target.value }))}
+                    required
+                  >
+                    <option value="">Select Stage</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Investigation">Investigation</option>
+                    <option value="Resolution">Resolution</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    value={timelineForm.date}
+                    onChange={(e) => setTimelineForm(prev => ({ ...prev, date: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea
+                    value={timelineForm.description}
+                    onChange={(e) => setTimelineForm(prev => ({ ...prev, description: e.target.value }))}
+                    required
+                    placeholder="Describe the current stage progress"
+                  />
+                  <div className="timeline-description">
+                    Example: "Conducted site inspection and collected evidence"
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowTimelineModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Save Stage
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -544,4 +783,4 @@ const RTODashboard = () => {
   );
 };
 
-export default RTODashboard;
+export default RtoDashboard;

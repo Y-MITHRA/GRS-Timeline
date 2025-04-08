@@ -20,7 +20,11 @@ import {
     submitFeedback,
     getOfficialFeedback,
     findNearestOfficeByCoordinates,
-    uploadDocumentAndCreateGrievance
+    uploadDocumentAndCreateGrievance,
+    updateResourceManagement,
+    getResourceManagement,
+    updateTimelineStage,
+    getTimelineStages
 } from '../controllers/grievanceController.js';
 import { processDocument, upload } from '../controllers/documentController.js';
 
@@ -101,5 +105,13 @@ router.post('/find-nearest-office', findNearestOfficeByCoordinates);
 
 // Upload document and create grievance
 router.post('/upload-document', auth, upload.single('document'), uploadDocumentAndCreateGrievance);
+
+// Resource Management routes
+router.post('/:id/resource-management', auth, updateResourceManagement);
+router.get('/:id/resource-management', auth, getResourceManagement);
+
+// Timeline Stage routes
+router.post('/:id/timeline-stage', auth, updateTimelineStage);
+router.get('/:id/timeline-stages', auth, getTimelineStages);
 
 export default router;  

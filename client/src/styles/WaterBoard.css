@@ -113,26 +113,30 @@
   color: #3498db;
 }
 
+.tab-container {
+  padding: 20px;
+}
+
 .tabs {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 2rem;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
 .tab {
-  padding: 0.5rem 1rem;
-  cursor: pointer;
+  padding: 8px 16px;
+  border: none;
+  background: #e9ecef;
+  color: #495057;
   border-radius: 4px;
-  transition: background-color 0.3s;
-}
-
-.tab:hover {
-  background-color: #eee;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
 }
 
 .tab.active {
-  background-color: #3498db;
-  color: #fff;
+  background: #0d6efd;
+  color: white;
 }
 
 .search-filter {
@@ -141,40 +145,42 @@
   margin-bottom: 2rem;
 }
 
-.search-box {
-  flex: 1;
-  position: relative;
+.search-container {
+  margin-bottom: 20px;
 }
 
-.search-box input {
-  width: 100%;
-  padding: 0.5rem 1rem 0.5rem 2.5rem;
-  border: 1px solid #ddd;
+.search-box {
+  display: flex;
+  align-items: center;
+  background: white;
+  border: 1px solid #dee2e6;
   border-radius: 4px;
+  padding: 8px 12px;
+  max-width: 300px;
 }
 
 .search-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
+  color: #6c757d;
+  margin-right: 8px;
 }
 
-.filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background-color: #fff;
-  cursor: pointer;
+.search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
 }
 
 .grievance-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.grievances-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .grievance-item {
@@ -186,13 +192,11 @@
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.grievance-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.grievance-item.selected {
-  border: 2px solid #3498db;
+.grievance-card {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px;
 }
 
 .grievance-header {
@@ -202,9 +206,29 @@
   margin-bottom: 0.5rem;
 }
 
+.grievance-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
 .grievance-id {
   font-weight: bold;
   color: #3498db;
+}
+
+.grievance-id {
+  color: #0d6efd;
+  font-weight: 500;
+}
+
+.grievance-date {
+  color: #666;
+}
+
+.grievance-date {
+  color: #6c757d;
+  font-size: 14px;
 }
 
 .grievance-title {
@@ -212,71 +236,67 @@
   margin: 0 1rem;
 }
 
-.grievance-assignee {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.assignee-avatar {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-}
-
-.grievance-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.grievance-date {
-  color: #666;
-}
-
-.grievance-categories {
-  flex: 1;
-  display: flex;
-  gap: 0.5rem;
-}
-
-.category,
-.subcategory {
-  background-color: #e9ecef;
-  padding: 0.1rem 0.5rem;
-  border-radius: 4px;
-}
-
-.grievance-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.status {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-}
-
-.status.unassigned {
-  background-color: #ffeaa7;
-  color: #d35400;
-}
-
-.status.assigned {
-  background-color: #81ecec;
-  color: #00b894;
-}
-
-.status.closed {
-  background-color: #dfe6e9;
-  color: #636e72;
+.grievance-title {
+  margin-bottom: 16px;
+  font-weight: 500;
 }
 
 .grievance-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.grievance-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-success {
+  background: #198754;
+  color: white;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-primary {
+  background: #0d6efd;
+  color: white;
+}
+
+.btn-info {
+  background: #0dcaf0;
+  color: white;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.loading, .error, .no-grievances {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
 }
 
 .detail-panel {
@@ -390,7 +410,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -398,44 +418,158 @@
 }
 
 .modal-content {
-  background-color: #fff;
-  padding: 2rem;
+  background: white;
+  padding: 24px;
   border-radius: 8px;
   width: 100%;
   max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-content h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
+  margin-bottom: 20px;
+  color: #212529;
 }
 
-.modal-content textarea {
+.resource-modal,
+.timeline-modal {
+  background: white;
+  border-radius: 8px;
   width: 100%;
-  height: 100px;
-  padding: 0.5rem;
-  margin-bottom: 1rem;
-  border: 1px solid #ddd;
+  max-width: 500px;
+  padding: 0;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  color: #212529;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  color: #212529;
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
   border-radius: 4px;
+  font-size: 14px;
+  color: #495057;
+  background-color: white;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.form-group input[type="date"] {
+  width: auto;
+  min-width: 200px;
+}
+
+.form-group input[type="number"] {
+  width: auto;
+  min-width: 150px;
+}
+
+.form-group textarea {
+  min-height: 100px;
   resize: vertical;
 }
 
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-}
-
-.modal-actions button {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
+.form-group select {
   cursor: pointer;
 }
 
-.modal-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid #dee2e6;
+  background-color: #f8f9fa;
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Timeline specific styles */
+.timeline-form .form-group select {
+  width: 100%;
+}
+
+.timeline-description {
+  font-size: 14px;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+/* Resource Management specific styles */
+.resource-requirements {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.resource-hint {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+}
+
+/* Form validation styles */
+.form-group input:invalid,
+.form-group textarea:invalid,
+.form-group select:invalid {
+  border-color: #dc3545;
+}
+
+.form-group .error-message {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .priority {
@@ -469,4 +603,66 @@
   color: #666;
   margin-left: 0.5rem;
   font-style: italic;
+}
+
+.details-modal {
+  background: white;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 450px;
+  padding: 0;
+}
+
+.details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.details-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  color: #212529;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.details-body {
+  padding: 24px;
+}
+
+.detail-row {
+  margin-bottom: 16px;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  display: block;
+  font-weight: 500;
+  color: #212529;
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  display: block;
+  color: #495057;
+  font-size: 14px;
 }
