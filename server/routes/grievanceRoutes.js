@@ -24,7 +24,10 @@ import {
     updateResourceManagement,
     getResourceManagement,
     updateTimelineStage,
-    getTimelineStages
+    getTimelineStages,
+    escalateGrievance,
+    getEscalatedGrievances,
+    respondToEscalation
 } from '../controllers/grievanceController.js';
 import { processDocument, upload } from '../controllers/documentController.js';
 
@@ -116,5 +119,10 @@ router.get('/:id/resource-management', auth, getResourceManagement);
 // Timeline Stage routes
 router.post('/:id/timeline-stage', auth, updateTimelineStage);
 router.get('/:id/timeline-stages', getTimelineStages);
+
+// Escalation routes
+router.post('/:id/escalate', auth, escalateGrievance);
+router.get('/escalated', auth, getEscalatedGrievances);
+router.post('/:id/escalation-response', auth, respondToEscalation);
 
 export default router;

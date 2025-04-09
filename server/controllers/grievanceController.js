@@ -370,7 +370,7 @@ export const acceptGrievance = async (req, res) => {
         // Update grievance
         grievance.status = 'assigned';
         grievance.assignedTo = officialId;
-        
+
         // Add official to assignedOfficials array if not already present
         if (!grievance.assignedOfficials) {
             grievance.assignedOfficials = [];
@@ -636,8 +636,8 @@ export const uploadResolutionDocument = async (req, res) => {
 
         // Check if official is authorized (either assigned directly or in assignedOfficials array)
         const isAuthorized = (grievance.assignedTo && grievance.assignedTo.toString() === officialId) ||
-                           (grievance.assignedOfficials && grievance.assignedOfficials.includes(officialId));
-        
+            (grievance.assignedOfficials && grievance.assignedOfficials.includes(officialId));
+
         if (!isAuthorized) {
             return res.status(403).json({ error: 'Not authorized to upload resolution document' });
         }
@@ -1044,4 +1044,207 @@ async function getCoordinatesFromLocation(location) {
         console.error('Error getting coordinates:', error);
         return null;
     }
-} 
+}
+
+// Escalate grievance
+export const escalateGrievance = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { escalationReason } = req.body;
+        const petitionerId = req.user.id;
+
+        const grievance = await Grievance.findById(id);
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        // Check if petitioner owns the grievance
+        if (grievance.petitioner.toString() !== petitionerId) {
+            return res.status(403).json({ error: 'Not authorized to escalate this grievance' });
+        }
+
+        // Check if already escalated
+        if (grievance.isEscalated) {
+            return res.status(400).json({ error: 'Grievance is already escalated' });
+        }
+
+        // Update grievance with escalation details
+        grievance.isEscalated = true;
+        grievance.escalatedAt = new Date();
+        grievance.escalationReason = escalationReason;
+        grievance.escalatedBy = petitionerId;
+        grievance.escalationStatus = 'Pending';
+
+        // Add to status history
+        grievance.statusHistory.push({
+            status: grievance.status,
+            updatedBy: petitionerId,
+            updatedByType: 'petitioner',
+            comment: `Grievance escalated. Reason: ${escalationReason}`
+        });
+
+        await grievance.save();
+
+        res.status(200).json({
+            message: 'Grievance escalated successfully',
+            grievance
+        });
+    } catch (error) {
+        console.error('Error escalating grievance:', error);
+        res.status(500).json({
+            error: 'Failed to escalate grievance',
+            details: error.message
+        });
+    }
+};
+
+// Get escalated grievances (for admin)
+export const getEscalatedGrievances = async (req, res) => {
+    try {
+        const escalatedGrievances = await Grievance.find({ isEscalated: true })
+            .populate('petitioner', 'firstName lastName email')
+            .populate('assignedTo', 'firstName lastName email')
+            .sort({ escalatedAt: -1 });
+
+        res.status(200).json({
+            grievances: escalatedGrievances
+        });
+    } catch (error) {
+        console.error('Error getting escalated grievances:', error);
+        res.status(500).json({
+            error: 'Failed to get escalated grievances',
+            details: error.message
+        });
+    }
+};
+
+// Respond to escalation (admin only)
+export const respondToEscalation = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { escalationResponse, newStatus, newAssignedTo } = req.body;
+        const adminId = req.user.id;
+
+        const grievance = await Grievance.findById(id);
+        if (!grievance) {
+            return res.status(404).json({ error: 'Grievance not found' });
+        }
+
+        if (!grievance.isEscalated) {
+            return res.status(400).json({ error: 'Grievance is not escalated' });
+        }
+
+        // Update escalation details
+        grievance.escalationResponse = escalationResponse;
+        grievance.escalationStatus = 'Resolved';
+
+        // Update status if provided
+        if (newStatus) {
+            grievance.status = newStatus;
+        }
+
+        // Update assigned official if provided
+        if (newAssignedTo) {
+            grievance.assignedTo = newAssignedTo;
+        }
+
+        // Add to status history
+        grievance.statusHistory.push({
+            status: grievance.status,
+            updatedBy: adminId,
+            updatedByType: 'admin',
+            comment: `Admin responded to escalation: ${escalationResponse}`
+        });
+
+        await grievance.save();
+
+        res.status(200).json({
+            message: 'Escalation response submitted successfully',
+            grievance
+        });
+    } catch (error) {
+        console.error('Error responding to escalation:', error);
+        res.status(500).json({
+            error: 'Failed to respond to escalation',
+            details: error.message
+        });
+    }
+};
+
+// Check for eligible escalations (cron job)
+export const checkEligibleEscalations = async () => {
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        console.log('Checking for eligible escalations...');
+        console.log('Seven days ago:', sevenDaysAgo);
+
+        // First, get all grievances that are not escalated
+        const allGrievances = await Grievance.find({ isEscalated: false });
+        console.log(`Found ${allGrievances.length} non-escalated grievances`);
+
+        // Filter grievances in JavaScript instead of MongoDB query
+        const eligibleGrievances = allGrievances.filter(grievance => {
+            // Condition 1: Case in pending/assigned/start for more than 7 days
+            if (['pending', 'assigned', 'start'].includes(grievance.status) &&
+                grievance.createdAt < sevenDaysAgo) {
+                return true;
+            }
+
+            // Condition 2: Half the days have passed without milestone updates
+            if (grievance.resourceManagement &&
+                grievance.resourceManagement.startDate &&
+                grievance.resourceManagement.endDate) {
+
+                // Parse dates
+                const startDate = new Date(grievance.resourceManagement.startDate);
+                const endDate = new Date(grievance.resourceManagement.endDate);
+                const now = new Date();
+
+                // Calculate total duration and half duration
+                const totalDuration = endDate - startDate;
+                const halfDuration = totalDuration / 2;
+
+                // Check if half the time has passed
+                if (now - startDate > halfDuration) {
+                    // Check if no milestone updates or last update was before halfway point
+                    if (!grievance.timelineStages || grievance.timelineStages.length === 0) {
+                        return true; // No milestones at all
+                    }
+
+                    // Get the last milestone date
+                    const lastMilestoneDate = new Date(grievance.timelineStages[grievance.timelineStages.length - 1].date);
+                    const halfwayPoint = new Date(startDate.getTime() + halfDuration);
+
+                    if (lastMilestoneDate < halfwayPoint) {
+                        return true; // Last milestone was before halfway point
+                    }
+                }
+            }
+
+            return false;
+        });
+
+        console.log('Found eligible grievances:', eligibleGrievances.length);
+        eligibleGrievances.forEach(g => {
+            console.log('Eligible grievance:', {
+                id: g._id,
+                status: g.status,
+                startDate: g.resourceManagement?.startDate,
+                endDate: g.resourceManagement?.endDate,
+                timelineStages: g.timelineStages?.length || 0
+            });
+        });
+
+        // Mark eligible grievances
+        for (const grievance of eligibleGrievances) {
+            grievance.escalationEligible = true;
+            await grievance.save();
+        }
+
+        console.log(`Marked ${eligibleGrievances.length} grievances as eligible for escalation`);
+    } catch (error) {
+        console.error('Error checking eligible escalations:', error);
+    }
+};

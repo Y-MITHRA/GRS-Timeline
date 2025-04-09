@@ -293,7 +293,9 @@
   transform: translateY(1px);
 }
 
-.loading, .error, .no-grievances {
+.loading,
+.error,
+.no-grievances {
   text-align: center;
   padding: 20px;
   color: #6c757d;
@@ -414,7 +416,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 9999;
 }
 
 .modal-content {
@@ -425,6 +427,8 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  position: relative;
+  z-index: 10000;
 }
 
 .modal-content h3 {

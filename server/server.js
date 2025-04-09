@@ -15,6 +15,8 @@ import chatRoutes from './routes/chatRoutes.js';
 import fs from 'fs';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import cron from 'node-cron';
+import { checkEligibleEscalations } from './controllers/grievanceController.js';
 
 // Get the directory name of the current module
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +41,16 @@ if (!fs.existsSync('uploads')) {
 
 // Database Connection
 connectDB();
+
+// Initialize escalation checker
+cron.schedule('* * * * *', async () => {
+    console.log('Running escalation check...');
+    try {
+        await checkEligibleEscalations();
+    } catch (error) {
+        console.error('Error in escalation check:', error);
+    }
+});
 
 // Middleware
 app.use(express.json());

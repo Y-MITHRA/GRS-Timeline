@@ -8,6 +8,8 @@ import moment from 'moment';
 import ChatComponent from '../components/ChatComponent';
 import TimelineView from '../components/TimelineView';
 import "../styles/Chat.css";
+import { Modal, Form, Button } from "react-bootstrap";
+import { toast } from "react-hot-toast";
 
 const PetitionerDashboard = () => {
     const navigate = useNavigate();
@@ -32,6 +34,9 @@ const PetitionerDashboard = () => {
     const [showChat, setShowChat] = useState(false);
     const [showTimeline, setShowTimeline] = useState(false);
     const [showDocumentModal, setShowDocumentModal] = useState(false);
+    const [showEscalationModal, setShowEscalationModal] = useState(false);
+    const [selectedGrievanceForEscalation, setSelectedGrievanceForEscalation] = useState(null);
+    const [escalationReason, setEscalationReason] = useState('');
 
     useEffect(() => {
         fetchGrievances();
@@ -61,10 +66,13 @@ const PetitionerDashboard = () => {
                 // Transform the data to match the expected format
                 const transformedGrievances = data.grievances.map(grievance => ({
                     ...grievance,
-                    grievanceId: grievance.petitionId || grievance.grievanceId, // Use petitionId if available, fallback to grievanceId
+                    grievanceId: grievance.petitionId || grievance.grievanceId,
                     submittedDate: grievance.createdAt,
                     lastUpdated: grievance.updatedAt,
-                    assignedTo: grievance.assignedTo || null // Ensure assignedTo is properly handled
+                    assignedTo: grievance.assignedTo || null,
+                    escalationEligible: grievance.escalationEligible || false,
+                    isEscalated: grievance.isEscalated || false,
+                    resourceManagement: grievance.resourceManagement || null
                 }));
 
                 // Filter based on active tab
@@ -127,6 +135,42 @@ const PetitionerDashboard = () => {
     const handleViewChat = (grievance) => {
         setSelectedGrievance(grievance);
         setShowChat(true);
+    };
+
+    const handleEscalate = async (grievance) => {
+        setSelectedGrievanceForEscalation(grievance);
+        setShowEscalationModal(true);
+    };
+
+    const submitEscalation = async () => {
+        try {
+            if (!escalationReason.trim()) {
+                toast.error('Please provide a reason for escalation');
+                return;
+            }
+
+            const response = await authenticatedFetch(`http://localhost:5000/api/grievances/${selectedGrievanceForEscalation._id}/escalate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ escalationReason })
+            });
+
+            if (response.ok) {
+                toast.success('Grievance escalated successfully');
+                setShowEscalationModal(false);
+                setEscalationReason('');
+                setSelectedGrievanceForEscalation(null);
+                fetchGrievances(); // Refresh the list
+            } else {
+                const data = await response.json();
+                toast.error(data.error || 'Failed to escalate grievance');
+            }
+        } catch (error) {
+            console.error('Error escalating grievance:', error);
+            toast.error('Failed to escalate grievance');
+        }
     };
 
     return (
@@ -328,6 +372,14 @@ const PetitionerDashboard = () => {
                                                     <Eye size={16} className="me-1" />
                                                     View Resolution
                                                 </button>
+                                                {grievance.escalationEligible && !grievance.isEscalated && (
+                                                    <button
+                                                        className="btn btn-warning btn-sm"
+                                                        onClick={() => handleEscalate(grievance)}
+                                                    >
+                                                        Escalate
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -356,8 +408,8 @@ const PetitionerDashboard = () => {
                                     ></button>
                                 </div>
                                 <div className="modal-body">
-                                    <TimelineView 
-                                        grievanceId={selectedGrievance._id} 
+                                    <TimelineView
+                                        grievanceId={selectedGrievance._id}
                                         onBack={() => {
                                             setShowTimeline(false);
                                             setSelectedGrievance(null);
@@ -392,7 +444,7 @@ const PetitionerDashboard = () => {
                                     </div>
                                 </div>
                                 <div className="modal-body" style={{ height: '500px', padding: 0 }}>
-                                    <ChatComponent 
+                                    <ChatComponent
                                         grievanceId={selectedGrievance._id}
                                         petitionerId={selectedGrievance.petitioner?._id || selectedGrievance.petitioner}
                                         officialId={selectedGrievance.assignedOfficials?.[0]?._id || selectedGrievance.assignedOfficials?.[0]}
@@ -429,7 +481,7 @@ const PetitionerDashboard = () => {
                                     <div className="text-center">
                                         <h6>Document: {selectedGrievance.resolutionDocument.filename}</h6>
                                         <p>Uploaded on: {moment(selectedGrievance.resolutionDocument.uploadedAt).format('MMMM Do YYYY, h:mm a')}</p>
-                                        <a 
+                                        <a
                                             href={`http://localhost:5000/${selectedGrievance.resolutionDocument.path}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
@@ -443,6 +495,34 @@ const PetitionerDashboard = () => {
                         </div>
                     </div>
                 )}
+
+                <Modal show={showEscalationModal} onHide={() => setShowEscalationModal(false)}>
+                    <Modal.Header closeButton>
+                        <Modal.Title>Escalate Grievance</Modal.Title>
+                    </Modal.Header>
+                    <Modal.Body>
+                        <Form>
+                            <Form.Group className="mb-3">
+                                <Form.Label>Reason for Escalation</Form.Label>
+                                <Form.Control
+                                    as="textarea"
+                                    rows={3}
+                                    value={escalationReason}
+                                    onChange={(e) => setEscalationReason(e.target.value)}
+                                    placeholder="Please provide a reason for escalating this grievance..."
+                                />
+                            </Form.Group>
+                        </Form>
+                    </Modal.Body>
+                    <Modal.Footer>
+                        <Button variant="secondary" onClick={() => setShowEscalationModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button variant="warning" onClick={submitEscalation}>
+                            Submit Escalation
+                        </Button>
+                    </Modal.Footer>
+                </Modal>
             </div>
             <Footer />
         </>

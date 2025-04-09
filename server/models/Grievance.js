@@ -192,7 +192,33 @@ const grievanceSchema = new mongoose.Schema({
         default: Date.now
     },
     resourceManagement: resourceManagementSchema,
-    timelineStages: [timelineStageSchema]
+    timelineStages: [timelineStageSchema],
+    isEscalated: {
+        type: Boolean,
+        default: false
+    },
+    escalatedAt: {
+        type: Date
+    },
+    escalationReason: {
+        type: String
+    },
+    escalatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Petitioner'
+    },
+    escalationStatus: {
+        type: String,
+        enum: ['Pending', 'Resolved'],
+        default: 'Pending'
+    },
+    escalationResponse: {
+        type: String
+    },
+    escalationEligible: {
+        type: Boolean,
+        default: false
+    }
 }, {
     timestamps: true
 });
