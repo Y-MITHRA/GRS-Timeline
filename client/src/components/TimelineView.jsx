@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import '../styles/Timeline.css';
 
-const TimelineView = ({ grievanceId }) => {
+const TimelineView = ({ grievanceId, onBack }) => {
     const [timelineStages, setTimelineStages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -13,14 +14,10 @@ const TimelineView = ({ grievanceId }) => {
     const fetchTimelineStages = async () => {
         try {
             const token = localStorage.getItem('token');
-            if (!token) {
-                throw new Error('No authentication token found');
-            }
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
             const response = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/timeline-stages`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: headers
             });
 
             if (!response.ok) {
@@ -64,7 +61,16 @@ const TimelineView = ({ grievanceId }) => {
 
     return (
         <div className="timeline-container">
-            <h3>Grievance Timeline</h3>
+            <div className="d-flex align-items-center mb-3">
+                <button
+                    type="button"
+                    className="btn btn-link text-dark me-3"
+                    onClick={onBack}
+                >
+                    <ArrowLeft size={24} />
+                </button>
+                <h3 className="mb-0">Grievance Timeline</h3>
+            </div>
             <div className="timeline">
                 {timelineStages.map((stage, index) => (
                     <div key={index} className="timeline-item">

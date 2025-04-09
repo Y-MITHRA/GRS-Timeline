@@ -16,6 +16,7 @@ import OfficialLogin from "./pages/OfficialLogin";
 import PetitionerLogin from "./pages/PetitionerLogin";
 import PetitionerDashboard from "./pages/PetitionerDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import ResourceManagement from "./pages/ResourceManagement";
 import OfficialDashboard from "./pages/OfficialDashboard";
 import WaterDashboard from "./official_dept/Water";
 import RTODashboard from "./official_dept/Rto";
@@ -76,6 +77,7 @@ function App() {
           {/* Protected Admin Routes */}
           <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/resource-management" element={<ResourceManagement />} />
           </Route>
 
           {/* Protected Official Routes */}
@@ -92,5 +94,3 @@ function App() {
 }
 
 export default App;
-
-

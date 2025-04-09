@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import Official from '../models/Official.js';
 import Petitioner from '../models/Petitioner.js';
 import Admin from '../models/Admin.js';
+import Grievance from '../models/Grievance.js';
 
 // Use the same secret as the client
 const JWT_SECRET = 'your-secret-key';
@@ -307,3 +308,33 @@ export const registerPetitioner = async (req, res) => {
         });
     }
 }; 
+
+// Get resource management data from all departments
+export const getResourceManagementData = async (req, res) => {
+    try {
+        const grievances = await Grievance.find({
+            resourceManagement: { $exists: true },
+            'resourceManagement.startDate': { $exists: true }
+        })
+        .select('department resourceManagement status petitionId')
+        .lean();
+
+        const resources = grievances.map(grievance => ({
+            _id: grievance._id,
+            department: grievance.department,
+            grievanceId: grievance.petitionId,
+            startDate: grievance.resourceManagement.startDate,
+            endDate: grievance.resourceManagement.endDate,
+            requirementsNeeded: grievance.resourceManagement.requirementsNeeded,
+            fundsRequired: grievance.resourceManagement.fundsRequired,
+            resourcesRequired: grievance.resourceManagement.resourcesRequired,
+            manpowerNeeded: grievance.resourceManagement.manpowerNeeded,
+            status: grievance.status === 'resolved' ? 'Completed' : 'In Progress'
+        }));
+
+        res.json({ resources });
+    } catch (error) {
+        console.error('Error fetching resource management data:', error);
+        res.status(500).json({ message: 'Error fetching resource management data' });
+    }
+};

@@ -35,10 +35,13 @@ const __dirname = dirname(__filename);
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, path.join(__dirname, '../uploads/resolution-docs/'));
+        const uploadPath = path.join(__dirname, '../uploads/resolution-docs');
+        cb(null, uploadPath);
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
+        // Generate a unique filename with timestamp and original extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
     }
 });
 
@@ -48,7 +51,7 @@ const uploadResolution = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     },
     fileFilter: (req, file, cb) => {
-        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
         } else {
@@ -112,6 +115,6 @@ router.get('/:id/resource-management', auth, getResourceManagement);
 
 // Timeline Stage routes
 router.post('/:id/timeline-stage', auth, updateTimelineStage);
-router.get('/:id/timeline-stages', auth, getTimelineStages);
+router.get('/:id/timeline-stages', getTimelineStages);
 
-export default router;  
+export default router;

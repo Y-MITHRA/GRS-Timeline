@@ -1,12 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Footer from "../shared/Footer";
 import NavBar from "../components/NavBar";
+import AdminSidebar from '../components/AdminSidebar';
 import { Bar, BarChart, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from "recharts";
 import { Container, Row, Col, Card, Button, Table } from "react-bootstrap";
-import { Bell, User, ChevronDown, Plus, MessageSquare, List, X } from "lucide-react";
+import { Bell, User, ChevronDown, Plus, MessageSquare, List, X, Database } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const AdminDashboard = () => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [resourceData, setResourceData] = useState([]);
+    const [resourceLoading, setResourceLoading] = useState(true);
+    const [resourceError, setResourceError] = useState(null);
 
     // Mock statistics
     const quickStats = [
@@ -57,31 +62,53 @@ const AdminDashboard = () => {
         },
     ];
 
+    useEffect(() => {
+        fetchResourceData();
+    }, []);
+
+    const fetchResourceData = async () => {
+        try {
+            setResourceLoading(true);
+            setResourceError(null);
+
+            const token = localStorage.getItem('token');
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            const response = await fetch('http://localhost:5000/api/admin/resource-management', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch resource data');
+            }
+
+            const data = await response.json();
+            setResourceData(data.resources);
+        } catch (error) {
+            console.error('Error fetching resource data:', error);
+            setResourceError('Failed to load resource data');
+        } finally {
+            setResourceLoading(false);
+        }
+    };
+
     return (
-        <>
-            <NavBar />
-            <div className="d-flex">
-                {/* Sidebar */}
+        <div className="d-flex">
+            <AdminSidebar />
+            <div className="flex-grow-1">
+                <NavBar />
+                <Container fluid className="py-3">
+                    <Row className="mb-4">
+                        <Col>
+                            <h2>Admin Dashboard</h2>
+                            <p className="text-muted">Welcome to the admin dashboard</p>
+                        </Col>
+                    </Row>
 
-                <div className={`bg-white p-3 shadow-sm ${sidebarOpen ? "w-25" : "w-10"} vh-100`}>
-                    <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h5 className={sidebarOpen ? "d-block" : "d-none"}>Admin Panel</h5>
-                        <Button variant="light" onClick={() => setSidebarOpen(!sidebarOpen)}>
-                            {sidebarOpen ? <X size={20} /> : <List size={20} />}
-                        </Button>
-                    </div>
-
-                    <ul className="nav flex-column">
-                        <li className="nav-item"><a href="/" className="nav-link">Dashboard</a></li>
-                        <li className="nav-item"><a href="/users" className="nav-link">Users</a></li>
-                        <li className="nav-item"><a href="/reports" className="nav-link">Reports</a></li>
-                        <li className="nav-item"><a href="/settings" className="nav-link">Settings</a></li>
-                        <li className="nav-item"><a href="/logout" className="nav-link text-danger">Logout</a></li>
-                    </ul>
-                </div>
-
-                {/* Main Content */}
-                <div className="flex-grow-1 p-3">
                     {/* Top Navbar */}
                     <div className="d-flex justify-content-between align-items-center bg-white p-3 shadow-sm mb-3">
                         <h4>Dashboard</h4>
@@ -142,60 +169,59 @@ const AdminDashboard = () => {
                     </Row>
 
                     {/* Cases Table */}
-                    <Card className="shadow-sm">
-                        <Card.Header className="d-flex justify-content-between align-items-center">
-                            <h6>Active Cases</h6>
-                            <Button variant="primary">
-                                <Plus size={16} className="me-2" /> Add Case
-                            </Button>
+                    
+
+                    {/* Resource Management Section */}
+                    <Card className="shadow-sm mt-4">
+                        <Card.Header>
+                            <h6>Department Resource Management</h6>
                         </Card.Header>
                         <Card.Body>
-                            <Table responsive>
-                                <thead>
-                                    <tr>
-                                        <th>Case ID</th>
-                                        <th>Title</th>
-                                        <th>Department</th>
-                                        <th>Assigned To</th>
-                                        <th>Status</th>
-                                        <th>Priority</th>
-                                        <th>Last Updated</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {cases.map((case_) => (
-                                        <tr key={case_.id}>
-                                            <td className="text-primary">{case_.id}</td>
-                                            <td>{case_.title}</td>
-                                            <td>{case_.department}</td>
-                                            <td>{case_.assignedTo}</td>
-                                            <td>
-                                                <span className={`badge bg-${case_.status === "In Progress" ? "warning" : "secondary"}`}>
-                                                    {case_.status}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span className={`badge bg-${case_.priority === "High" ? "danger" : "info"}`}>
-                                                    {case_.priority}
-                                                </span>
-                                            </td>
-                                            <td>{case_.lastUpdated}</td>
-                                            <td>
-                                                <Button variant="outline-primary" size="sm">
-                                                    <MessageSquare size={16} />
-                                                </Button>
-                                            </td>
+                            {resourceLoading ? (
+                                <div className="text-center">Loading resource data...</div>
+                            ) : resourceError ? (
+                                <div className="text-danger">{resourceError}</div>
+                            ) : (
+                                <Table responsive>
+                                    <thead>
+                                        <tr>
+                                            <th>Department</th>
+                                            <th>Grievance ID</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th>Requirements</th>
+                                            <th>Funds Required</th>
+                                            <th>Resources</th>
+                                            <th>Manpower</th>
+                                            <th>Status</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </Table>
+                                    </thead>
+                                    <tbody>
+                                        {resourceData.map((resource) => (
+                                            <tr key={resource._id}>
+                                                <td>{resource.department}</td>
+                                                <td className="text-primary">{resource.grievanceId}</td>
+                                                <td>{new Date(resource.startDate).toLocaleDateString()}</td>
+                                                <td>{new Date(resource.endDate).toLocaleDateString()}</td>
+                                                <td>{resource.requirementsNeeded}</td>
+                                                <td>₹{resource.fundsRequired}</td>
+                                                <td>{resource.resourcesRequired}</td>
+                                                <td>{resource.manpowerNeeded}</td>
+                                                <td>
+                                                    <span className={`badge bg-${resource.status === 'Completed' ? 'success' : 'warning'}`}>
+                                                        {resource.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            )}
                         </Card.Body>
                     </Card>
-                </div>
+                </Container>
             </div>
-            <Footer />
-        </>
+        </div>
     );
 };
 

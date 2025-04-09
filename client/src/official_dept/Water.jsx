@@ -94,9 +94,18 @@ const WaterDashboard = () => {
       const data = await response.json();
       console.log('Fetched data:', data);
 
+      // Process grievances to ensure all required fields are present
+      const processedGrievances = data.grievances.map(grievance => ({
+        ...grievance,
+        grievanceId: grievance.petitionId || grievance.grievanceId || 'N/A',
+        title: grievance.title || 'No Title',
+        description: grievance.description || 'No Description',
+        createdAt: grievance.createdAt || new Date().toISOString()
+      }));
+
       setGrievances(prev => ({
         ...prev,
-        [activeTab]: data.grievances
+        [activeTab]: processedGrievances
       }));
 
       if (data.stats) {
@@ -232,44 +241,53 @@ const WaterDashboard = () => {
       fileInput.type = 'file';
       fileInput.accept = '.pdf,.jpg,.jpeg,.png';
       fileInput.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        try {
+          const file = e.target.files[0];
+          if (!file) return;
 
-        const formData = new FormData();
-        formData.append('document', file);
+          const formData = new FormData();
+          formData.append('document', file);
 
-        // First upload the document
-        const uploadResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/upload-resolution`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: formData
-        });
+          // First upload the document
+          const uploadResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/upload-resolution`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            body: formData
+          });
 
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload resolution document');
+          const uploadData = await uploadResponse.json();
+          
+          if (!uploadResponse.ok) {
+            throw new Error(uploadData.error || 'Failed to upload resolution document');
+          }
+
+          // Then resolve the grievance
+          const resolveResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/resolve`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              resolutionMessage: 'Grievance resolved with attached document'
+            })
+          });
+
+          const resolveData = await resolveResponse.json();
+
+          if (!resolveResponse.ok) {
+            throw new Error(resolveData.error || 'Failed to resolve grievance');
+          }
+
+          // Refresh the grievances list
+          fetchGrievances();
+          toast.success('Grievance resolved successfully');
+        } catch (error) {
+          console.error('Error in file upload:', error);
+          toast.error(error.message || 'Failed to upload and resolve grievance');
         }
-
-        // Then resolve the grievance
-        const resolveResponse = await fetch(`http://localhost:5000/api/grievances/${grievanceId}/resolve`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            resolutionMessage: 'Grievance resolved with attached document'
-          })
-        });
-
-        if (!resolveResponse.ok) {
-          throw new Error('Failed to resolve grievance');
-        }
-
-        // Refresh the grievances list
-        fetchGrievances();
-        toast.success('Grievance resolved successfully');
       };
 
       fileInput.click();
@@ -315,7 +333,7 @@ const WaterDashboard = () => {
   };
 
   const filteredGrievances = grievances[activeTab].filter(grievance =>
-    (grievance?.grievanceId?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (grievance?.petitionId?.toLowerCase() || grievance?.grievanceId?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
     (grievance?.title?.toLowerCase() || '').includes(searchQuery.toLowerCase())
   );
 
@@ -427,7 +445,7 @@ const WaterDashboard = () => {
                   grievances[activeTab].map((grievance) => (
                     <div key={grievance._id} className="grievance-card">
                       <div className="grievance-header">
-                        <div className="grievance-id">{grievance.grievanceId}</div>
+                        <div className="grievance-id">{grievance.petitionId || grievance.grievanceId}</div>
                         <div className="grievance-date">
                           {new Date(grievance.createdAt).toLocaleDateString()}
                         </div>
@@ -582,31 +600,7 @@ const WaterDashboard = () => {
         </div>
       )}
 
-      {selectedGrievance && selectedGrievance.status === 'resolved' && (
-        <div className="mt-4 p-4 bg-white rounded-lg shadow">
-          <h3 className="text-lg font-semibold mb-2">Resolution Details</h3>
-          {selectedGrievance.resolutionDocument && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">Resolution Document:</p>
-              <a
-                href={`http://localhost:5000/uploads/resolution-docs/${selectedGrievance.resolutionDocument.filename}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                View Document
-              </a>
-            </div>
-          )}
-          {selectedGrievance.resolution && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">Resolution Message:</p>
-              <p className="text-sm">{selectedGrievance.resolution.text}</p>
-            </div>
-          )}
-        </div>
-      )}
-
+      
       {showResourceModal && selectedGrievance && (
         <div className="modal">
           <div className="modal-content">

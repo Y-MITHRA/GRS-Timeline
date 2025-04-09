@@ -2,6 +2,8 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import Admin from '../models/Admin.js';
 import { generateToken } from '../middleware/auth.js';
+import { getResourceManagementData } from '../controllers/authController.js';
+import { auth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -98,6 +100,17 @@ router.post('/login', async (req, res) => {
         });
     } catch (error) {
         console.error("Login Error:", error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Get resource management data from all departments
+router.get('/resource-management', auth, async (req, res) => {
+    try {
+        // Call the controller directly
+        await getResourceManagementData(req, res);
+    } catch (error) {
+        console.error("Error:", error);
         res.status(500).json({ message: 'Server error' });
     }
 });

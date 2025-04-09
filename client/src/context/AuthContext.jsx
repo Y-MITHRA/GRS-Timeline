@@ -160,6 +160,13 @@ export const AuthProvider = ({ children }) => {
                 localStorage.setItem('token', data.token);
                 // Store user data in localStorage
                 localStorage.setItem('user', JSON.stringify(data.user));
+                // Store email and employeeId for department officials
+                if (data.user.role === 'official') {
+                    localStorage.setItem('email', emailValue);
+                    if (employeeId) {
+                        localStorage.setItem('employeeId', employeeId);
+                    }
+                }
                 // Set user in state
                 setUser(data.user);
             } else {
@@ -183,25 +190,19 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-        setTokenExpiryWarning(false);
-
-        // Navigate based on current user role
-        const currentRole = user?.role?.toLowerCase();
-        switch (currentRole) {
-            case 'petitioner':
-                navigate('/login/petitioner');
-                break;
-            case 'official':
-                navigate('/login/official');
-                break;
-            case 'admin':
-                navigate('/login/admin');
-                break;
-            default:
-                navigate('/login');
+        try {
+            // Clear all auth-related data from localStorage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Reset state
+            setUser(null);
+            setTokenExpiryWarning(false);
+            
+            // Navigate to login page
+            navigate('/login');
+        } catch (error) {
+            console.error('Logout error:', error);
         }
     };
 
@@ -345,4 +346,4 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-export default AuthProvider; 
+export default AuthProvider;

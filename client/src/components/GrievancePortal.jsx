@@ -3,11 +3,15 @@ import { Bell, Menu, X, ChevronRight, User, FileText, BarChart2, HelpCircle } fr
 import image from '../assets/image.jpg';
 import Footer from '../shared/Footer';
 import NavBar from '../components/NavBar';
+import TimelineView from './TimelineView';
 import { useNavigate } from 'react-router-dom';
 
 const GrievancePortal = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
+  const [showTrackModal, setShowTrackModal] = useState(false);
+  const [grievanceId, setGrievanceId] = useState('');
+  const [showTimeline, setShowTimeline] = useState(false);
   const navigate = useNavigate();
   return (
     <div className="min-vh-100 bg-light">
@@ -28,7 +32,7 @@ const GrievancePortal = () => {
                 <button className="btn btn-warning px-4 py-2 me-md-2 d-flex align-items-center justify-content-center">
                   Submit Grievance <ChevronRight className="ms-2" size={18} />
                 </button>
-                <button className="btn btn-outline-light px-4 py-2">
+                <button className="btn btn-outline-light px-4 py-2" onClick={() => setShowTrackModal(true)}>
                   Track Status
                 </button>
               </div>
@@ -170,8 +174,60 @@ const GrievancePortal = () => {
         </div>
       </section>
       <Footer />
-      {/* Footer */}
+
+      {/* Track Status Modal */}
+      {showTrackModal && (
+        <div className="modal show d-block" tabIndex="-1" style={{ zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered" style={{ position: 'relative', zIndex: 1055 }}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Track Your Grievance</h5>
+                <button type="button" className="btn-close" onClick={() => {
+                  setShowTrackModal(false);
+                  setShowTimeline(false);
+                  setGrievanceId('');
+                }}></button>
+              </div>
+              {!showTimeline ? (
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label htmlFor="grievanceId" className="form-label">Enter Grievance ID</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      id="grievanceId"
+                      value={grievanceId}
+                      onChange={(e) => setGrievanceId(e.target.value)}
+                      placeholder="e.g., GR123456"
+                    />
+                  </div>
+                  <div className="text-end">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => setShowTimeline(true)}
+                      disabled={!grievanceId.trim()}
+                    >
+                      Track
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="modal-body p-0">
+                  <TimelineView
+                    grievanceId={grievanceId}
+                    onBack={() => setShowTimeline(false)}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
+      {/* Modal Backdrop */}
+      {showTrackModal && (
+        <div className="modal-backdrop show" style={{ zIndex: 1040 }}></div>
+      )}
     </div>
   );
 };

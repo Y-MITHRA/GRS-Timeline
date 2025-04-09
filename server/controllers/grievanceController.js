@@ -298,8 +298,9 @@ export const getDepartmentGrievances = async (req, res) => {
 
         console.log('Query parameters:', query);
 
-        // Get grievances
+        // Get grievances with all necessary fields
         const grievances = await Grievance.find(query)
+            .select('petitionId title description department location status createdAt updatedAt assignedTo assignedOfficials resolutionDocument')
             .populate('petitioner', 'name email')
             .populate('assignedTo', 'firstName lastName email')
             .sort({ createdAt: -1 });
@@ -369,6 +370,15 @@ export const acceptGrievance = async (req, res) => {
         // Update grievance
         grievance.status = 'assigned';
         grievance.assignedTo = officialId;
+        
+        // Add official to assignedOfficials array if not already present
+        if (!grievance.assignedOfficials) {
+            grievance.assignedOfficials = [];
+        }
+        if (!grievance.assignedOfficials.includes(officialId)) {
+            grievance.assignedOfficials.push(officialId);
+        }
+
         grievance.statusHistory.push({
             status: 'assigned',
             updatedBy: officialId,
@@ -624,8 +634,11 @@ export const uploadResolutionDocument = async (req, res) => {
             return res.status(404).json({ error: 'Grievance not found' });
         }
 
-        // Check if official is in the assigned officials list
-        if (!grievance.assignedOfficials.includes(officialId)) {
+        // Check if official is authorized (either assigned directly or in assignedOfficials array)
+        const isAuthorized = (grievance.assignedTo && grievance.assignedTo.toString() === officialId) ||
+                           (grievance.assignedOfficials && grievance.assignedOfficials.includes(officialId));
+        
+        if (!isAuthorized) {
             return res.status(403).json({ error: 'Not authorized to upload resolution document' });
         }
 
@@ -636,7 +649,7 @@ export const uploadResolutionDocument = async (req, res) => {
         // Update grievance with document details
         grievance.resolutionDocument = {
             filename: req.file.originalname,
-            path: req.file.path,
+            path: 'uploads/resolution-docs/' + req.file.filename,
             uploadedAt: new Date()
         };
 

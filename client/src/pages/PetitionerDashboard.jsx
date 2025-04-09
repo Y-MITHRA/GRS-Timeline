@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Footer from "../shared/Footer";
 import NavBar from "../components/NavBar";
-import { Plus, Search, Filter, RefreshCw, Eye, MessageCircle, AlertCircle, Clock } from "lucide-react";
+import { Plus, Search, Filter, RefreshCw, Eye, MessageCircle, AlertCircle, Clock, ArrowLeft } from "lucide-react";
 import moment from 'moment';
 import ChatComponent from '../components/ChatComponent';
 import TimelineView from '../components/TimelineView';
@@ -31,6 +31,7 @@ const PetitionerDashboard = () => {
     const [selectedGrievance, setSelectedGrievance] = useState(null);
     const [showChat, setShowChat] = useState(false);
     const [showTimeline, setShowTimeline] = useState(false);
+    const [showDocumentModal, setShowDocumentModal] = useState(false);
 
     useEffect(() => {
         fetchGrievances();
@@ -316,6 +317,17 @@ const PetitionerDashboard = () => {
                                                     <Clock size={16} className="me-1" />
                                                     Timeline
                                                 </button>
+                                                <button
+                                                    className="btn btn-sm btn-outline-primary me-2"
+                                                    onClick={() => {
+                                                        setSelectedGrievance(grievance);
+                                                        setShowDocumentModal(true);
+                                                    }}
+                                                    disabled={!grievance.resolutionDocument}
+                                                >
+                                                    <Eye size={16} className="me-1" />
+                                                    View Resolution
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -344,7 +356,13 @@ const PetitionerDashboard = () => {
                                     ></button>
                                 </div>
                                 <div className="modal-body">
-                                    <TimelineView grievanceId={selectedGrievance._id} />
+                                    <TimelineView 
+                                        grievanceId={selectedGrievance._id} 
+                                        onBack={() => {
+                                            setShowTimeline(false);
+                                            setSelectedGrievance(null);
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -357,17 +375,21 @@ const PetitionerDashboard = () => {
                         <div className="modal-dialog modal-lg">
                             <div className="modal-content">
                                 <div className="modal-header">
-                                    <h5 className="modal-title">
-                                        Chat - Grievance {selectedGrievance.grievanceId}
-                                    </h5>
-                                    <button
-                                        type="button"
-                                        className="btn-close"
-                                        onClick={() => {
-                                            setShowChat(false);
-                                            setSelectedGrievance(null);
-                                        }}
-                                    ></button>
+                                    <div className="d-flex align-items-center">
+                                        <button
+                                            type="button"
+                                            className="btn btn-link text-dark me-3"
+                                            onClick={() => {
+                                                setShowChat(false);
+                                                setSelectedGrievance(null);
+                                            }}
+                                        >
+                                            <ArrowLeft size={24} />
+                                        </button>
+                                        <h5 className="modal-title mb-0">
+                                            Chat - Grievance {selectedGrievance.grievanceId}
+                                        </h5>
+                                    </div>
                                 </div>
                                 <div className="modal-body" style={{ height: '500px', padding: 0 }}>
                                     <ChatComponent 
@@ -375,6 +397,47 @@ const PetitionerDashboard = () => {
                                         petitionerId={selectedGrievance.petitioner?._id || selectedGrievance.petitioner}
                                         officialId={selectedGrievance.assignedOfficials?.[0]?._id || selectedGrievance.assignedOfficials?.[0]}
                                     />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Resolution Document Modal */}
+                {showDocumentModal && selectedGrievance && selectedGrievance.resolutionDocument && (
+                    <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
+                        <div className="modal-dialog modal-lg">
+                            <div className="modal-content">
+                                <div className="modal-header">
+                                    <div className="d-flex align-items-center">
+                                        <button
+                                            type="button"
+                                            className="btn btn-link text-dark me-3"
+                                            onClick={() => {
+                                                setShowDocumentModal(false);
+                                                setSelectedGrievance(null);
+                                            }}
+                                        >
+                                            <ArrowLeft size={24} />
+                                        </button>
+                                        <h5 className="modal-title mb-0">
+                                            Resolution Document - Grievance {selectedGrievance.grievanceId}
+                                        </h5>
+                                    </div>
+                                </div>
+                                <div className="modal-body">
+                                    <div className="text-center">
+                                        <h6>Document: {selectedGrievance.resolutionDocument.filename}</h6>
+                                        <p>Uploaded on: {moment(selectedGrievance.resolutionDocument.uploadedAt).format('MMMM Do YYYY, h:mm a')}</p>
+                                        <a 
+                                            href={`http://localhost:5000/${selectedGrievance.resolutionDocument.path}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-primary"
+                                        >
+                                            View Document
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
